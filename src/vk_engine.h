@@ -122,7 +122,7 @@ public:
 	VkPipeline _gradientPipeline;
 	VkPipelineLayout _gradientPipelineLayout;
 	std::vector<ComputeEffect> backgroundEffects;
-	int currentBackgroundEffect{ 0 };
+	int currentBackgroundEffect{ 1 };
 
 	VkPipelineLayout _meshPipelineLayout;
 	VkPipeline _meshPipeline;

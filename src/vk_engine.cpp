@@ -300,39 +300,53 @@ void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
 
 	GPUDrawPushConstants push_constants;
 	push_constants.worldMatrix = sceneData.viewproj;
-	push_constants.vertexBuffer = testMeshes[0]->meshBuffers.vertexBufferAddress;
+	push_constants.vertexBuffer = testMeshes[2]->meshBuffers.vertexBufferAddress;
 
 	vkCmdPushConstants(cmd, _meshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &push_constants);
-	vkCmdBindIndexBuffer(cmd, testMeshes[0]->meshBuffers.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+	vkCmdBindIndexBuffer(cmd, testMeshes[2]->meshBuffers.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
-	vkCmdDrawIndexed(cmd, testMeshes[0]->surfaces[0].count, 1, testMeshes[0]->surfaces[0].startIndex, 0, 0);
+	vkCmdDrawIndexed(cmd, testMeshes[2]->surfaces[0].count, 1, testMeshes[2]->surfaces[0].startIndex, 0, 0);
 
 	vkCmdEndRendering(cmd);
 }
 
 void VulkanEngine::ProcessInput(SDL_Event* e)
 {
+	if (SDL_GetRelativeMouseMode() == SDL_TRUE)
+	{
+		bool cameraUpdated = false;
+		if (e->type == SDL_KEYDOWN) {
+			if (e->key.keysym.sym == SDLK_w) { _camera.velocity.z = 1.0f;	}
+			if (e->key.keysym.sym == SDLK_s) { _camera.velocity.z = -1.0f;	}
+			if (e->key.keysym.sym == SDLK_a) { _camera.velocity.x = -1.0f;	}
+			if (e->key.keysym.sym == SDLK_d) { _camera.velocity.x =  1.0f;	}
 
-    if (e->type == SDL_KEYDOWN) {
-        if (e->key.keysym.sym == SDLK_w) { _camera.moveForward(_deltaTime); }
-        if (e->key.keysym.sym == SDLK_s) { _camera.moveBackward(_deltaTime); }
-        if (e->key.keysym.sym == SDLK_a) { _camera.moveLeft(_deltaTime); }
-        if (e->key.keysym.sym == SDLK_d) { _camera.moveRight(_deltaTime); }
-        if (e->key.keysym.sym == SDLK_q) {
-            fmt::printf("HI \n");
-        }
-    }
+			cameraUpdated = true;
+		}
 
-    // if (e->type == SDL_KEYUP) {
-    //     if (e->key.keysym.sym == SDLK_w) { velocity.z = 0; }
-    //     if (e->key.keysym.sym == SDLK_s) { velocity.z = 0; }
-    //     if (e->key.keysym.sym == SDLK_a) { velocity.x = 0; }
-    //     if (e->key.keysym.sym == SDLK_d) { velocity.x = 0; }
-    // }
+		if (e->type == SDL_KEYUP) {
+			if (e->key.keysym.sym == SDLK_w) { _camera.velocity.z = 0; }
+			if (e->key.keysym.sym == SDLK_s) { _camera.velocity.z = 0; }
+			if (e->key.keysym.sym == SDLK_a) { _camera.velocity.x = 0; }
+			if (e->key.keysym.sym == SDLK_d) { _camera.velocity.x = 0; }
+			cameraUpdated = true;
+		}
 
-    if (e->type == SDL_MOUSEMOTION) {
-        _camera.processMouseMovement(e->motion.xrel, -e->motion.yrel);
-    }
+
+
+		if (e->type == SDL_MOUSEMOTION) {
+			_camera.processMouseMovement(e->motion.xrel, -e->motion.yrel);
+		}
+
+		// if (cameraUpdated) {
+		_camera.updatePosition(_deltaTime);
+		// }
+
+	}
+	
+	if (e->type == SDL_KEYDOWN && e->key.keysym.sym == SDLK_TAB) {
+		SDL_SetRelativeMouseMode(SDL_GetRelativeMouseMode() == SDL_TRUE ? SDL_FALSE : SDL_TRUE);
+	}
 
 }
 

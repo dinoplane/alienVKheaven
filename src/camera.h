@@ -17,6 +17,7 @@ class Camera {
     // float fov;
     public:
         glm::vec3 position;
+        glm::vec3 velocity;
 
         float speed;
         float sensitivity;
@@ -58,6 +59,7 @@ class Camera {
             fovY = fovY_val;
             zNear = zNear_val;
             zFar = zFar_val;
+            velocity = glm::vec3(0.0f);
 
             setPerspectiveSize(w, h);
             updateCameraVectors();
@@ -69,6 +71,8 @@ class Camera {
         void moveBackward(float deltaTime);
         void moveUp(float deltaTime);
         void moveDown(float deltaTime);
+        
+        void updatePosition(float deltaTime);
 
 
         void processMouseMovement(float xoffset, float yoffset);

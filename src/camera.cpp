@@ -28,6 +28,8 @@ void Camera::moveDown(float deltaTime){
 
 
 
+
+
 void Camera::processMouseMovement(float xoffset, float yoffset){
     float sensitivity = 0.1f;
     xoffset *= sensitivity;
@@ -43,7 +45,9 @@ void Camera::processMouseMovement(float xoffset, float yoffset){
 
     updateCameraVectors();
 }
-
+void Camera::updatePosition(float deltaTime){
+    position += (velocity.z*front + velocity.x*right) * deltaTime * speed;
+}
 
 void Camera::updateCameraVectors(){
     glm::vec3 direction;
@@ -53,6 +57,7 @@ void Camera::updateCameraVectors(){
     front = glm::normalize(direction);
     right = glm::normalize(glm::cross(front, worldUp));
     up = glm::normalize(glm::cross(right, front));
+    
 }
 
 Frustum Camera::createFrustumFromCamera(const Camera& cam)

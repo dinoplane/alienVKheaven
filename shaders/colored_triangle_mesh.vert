@@ -4,6 +4,8 @@
 
 layout (location = 0) out vec3 outColor;
 layout (location = 1) out vec2 outUV;
+layout (location = 2) out vec3 outPosition;
+layout (location = 3) out vec3 outNormal;
 
 struct Vertex {
 
@@ -25,6 +27,8 @@ layout( push_constant ) uniform constants
 	VertexBuffer vertexBuffer;
 } PushConstants;
 
+
+
 void main() 
 {	
 	//load vertex data from device adress
@@ -35,5 +39,7 @@ void main()
 	outColor = v.normal.xyz;
 	outUV.x = v.uv_x;
 	outUV.y = v.uv_y;
+	outPosition = v.position;
+	outNormal = v.normal;
 }
 //< all
