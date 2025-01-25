@@ -69,7 +69,6 @@ void VulkanEngine::InitVulkan()
 //< vma_init
 }
 
-
 void VulkanEngine::InitSwapchain()
 {
     CreateSwapchain(_windowExtent.width, _windowExtent.height);
@@ -163,7 +162,6 @@ void VulkanEngine::DestroySwapchain(){
 	}
 }
 
-
 void VulkanEngine::RecreateSwapchain(){
 	vkDeviceWaitIdle(_device);
 
@@ -178,7 +176,6 @@ void VulkanEngine::RecreateSwapchain(){
 
 	resize_requested = false;
 }
-
 
 void VulkanEngine::InitCommands(){
     //create a command pool for commands submitted to the graphics queue.
@@ -225,7 +222,6 @@ void VulkanEngine::InitSyncStructures(){
 	VK_CHECK(vkCreateFence(_device, &fenceCreateInfo, nullptr, &_immFence));
 	_mainDeletionQueue.push_function([=]() { vkDestroyFence(_device, _immFence, nullptr); });
 }
-
 
 void VulkanEngine::InitDescriptors()
 {
@@ -313,7 +309,6 @@ void VulkanEngine::InitDescriptors()
 
 
 }
-
 
 void VulkanEngine::InitBackgroundPipelines(){
 	VkPipelineLayoutCreateInfo computeLayout{};
@@ -463,7 +458,6 @@ void VulkanEngine::InitGraphicsPipelines()
 		vkDestroyPipeline(_device, _meshPipeline, nullptr);
     });
 }
-
 
 void VulkanEngine::InitPipelines()
 {
@@ -617,5 +611,3 @@ void VulkanEngine::InitDefaultData()
 		destroy_image(_errorCheckerboardImage);
 	});
 }
-
-

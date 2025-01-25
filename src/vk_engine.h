@@ -14,6 +14,7 @@
 #include <array>
 #include <iostream>
 #include <fstream>
+#include <chrono>
 
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
@@ -27,7 +28,7 @@
 
 #include "vk_mem_alloc.h"
 
-
+#include "camera.h"
 
 constexpr bool bUseValidationLayers = true;
 
@@ -182,6 +183,15 @@ public:
 	
 	GPUSceneData sceneData;
 
+	// Camera Data
+	Camera _camera;
+
+	// timing data
+	float _deltaTime{ 0.0f };
+	float _lastFrame{ 0.0f };
+	float _frameTimer{ 0.0f };
+	std::chrono::time_point<std::chrono::high_resolution_clock> _lastTimePoint;
+
 
 	static VulkanEngine& Get();
 
@@ -241,5 +251,6 @@ public:
 	void DrawGeometry(VkCommandBuffer cmd);
 	void DrawImgui(VkCommandBuffer cmd, VkImageView targetImageView);
 
-
+	void ProcessInput(SDL_Event* e);
+	void UpdateScene();
 };

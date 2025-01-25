@@ -3,14 +3,16 @@
 #include <thread>
 #include <chrono>
 
+#include <fmt/core.h>
+#include <fmt/printf.h>
+
 #define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"
-
-
 
 VulkanEngine* loadedEngine = nullptr;
 
 VulkanEngine& VulkanEngine::Get() { return *loadedEngine; }
+
 void VulkanEngine::init()
 {
     // only one engine initialization is allowed with the application.
@@ -47,6 +49,9 @@ void VulkanEngine::init()
     InitDefaultData();
 
     // everything went fine
+    _lastFrame = 0;
+    _lastTimePoint = std::chrono::high_resolution_clock::now();
+    _frameTimer = 0;
     _isInitialized = true;
 }
 
@@ -125,7 +130,14 @@ void VulkanEngine::draw()
 	// we will overwrite it all so we dont care about what was the older layout
 	vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
+	// VkClearColorValue clearValue;
+	// float flash = std::abs(std::sin(_frameNumber / 120.f));
+	// clearValue = { { 0.0f, 0.0f, flash, 1.0f } };
+
+	// VkImageSubresourceRange clearRange = vkinit::image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);
+
 	DrawBackground(cmd);
+    // vkCmdClearColorImage(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
 
 	vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 	vkutil::transition_image(cmd, _depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
@@ -252,7 +264,7 @@ void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
 	//add it to the deletion queue of this frame so it gets deleted once its been used
 	get_current_frame()._deletionQueue.push_function([=, this]() {
 		destroy_buffer(gpuSceneDataBuffer);
-		});
+    });
 
 	//write the buffer
 	GPUSceneData* sceneUniformData = (GPUSceneData*)gpuSceneDataBuffer.allocation->GetMappedData();
@@ -265,8 +277,8 @@ void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
 	writer.write_buffer(0, gpuSceneDataBuffer.buffer, sizeof(GPUSceneData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 	writer.update_set(_device, globalDescriptor);
 
-//> drawrect
 	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _meshPipeline);
+
 	//bind a texture
 	VkDescriptorSet imageSet = get_current_frame()._frameDescriptors.allocate(_device, _singleImageDescriptorLayout);
 	{
@@ -278,26 +290,69 @@ void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
 
 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _meshPipelineLayout, 0, 1, &imageSet, 0, nullptr);
 
-	glm::mat4 view = glm::translate(glm::vec3{ 0,0,-5 });
-	// camera projection
-	glm::mat4 projection = glm::perspective(glm::radians(70.f), (float)_drawExtent.width / (float)_drawExtent.height, 10000.f, 0.1f);
+	// glm::mat4 view = glm::translate(glm::vec3{ 0,0,-5 });
+	// // camera projection
+	// glm::mat4 projection = glm::perspective(glm::radians(70.f), (float)_drawExtent.width / (float)_drawExtent.height, 10000.f, 0.1f);
 
-	// invert the Y direction on projection matrix so that we are more similar
-	// to opengl and gltf axis
-	projection[1][1] *= -1;
+	// // invert the Y direction on projection matrix so that we are more similar
+	// // to opengl and gltf axis
+	// projection[1][1] *= -1;
 
 	GPUDrawPushConstants push_constants;
-	push_constants.worldMatrix = projection * view;
-	push_constants.vertexBuffer = testMeshes[2]->meshBuffers.vertexBufferAddress;
+	push_constants.worldMatrix = sceneData.viewproj;
+	push_constants.vertexBuffer = testMeshes[0]->meshBuffers.vertexBufferAddress;
 
 	vkCmdPushConstants(cmd, _meshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &push_constants);
-	vkCmdBindIndexBuffer(cmd, testMeshes[2]->meshBuffers.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+	vkCmdBindIndexBuffer(cmd, testMeshes[0]->meshBuffers.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
-	vkCmdDrawIndexed(cmd, testMeshes[2]->surfaces[0].count, 1, testMeshes[2]->surfaces[0].startIndex, 0, 0);
-//< meshdraw
+	vkCmdDrawIndexed(cmd, testMeshes[0]->surfaces[0].count, 1, testMeshes[0]->surfaces[0].startIndex, 0, 0);
 
 	vkCmdEndRendering(cmd);
 }
+
+void VulkanEngine::ProcessInput(SDL_Event* e)
+{
+
+    if (e->type == SDL_KEYDOWN) {
+        if (e->key.keysym.sym == SDLK_w) { _camera.moveForward(_deltaTime); }
+        if (e->key.keysym.sym == SDLK_s) { _camera.moveBackward(_deltaTime); }
+        if (e->key.keysym.sym == SDLK_a) { _camera.moveLeft(_deltaTime); }
+        if (e->key.keysym.sym == SDLK_d) { _camera.moveRight(_deltaTime); }
+        if (e->key.keysym.sym == SDLK_q) {
+            fmt::printf("HI \n");
+        }
+    }
+
+    // if (e->type == SDL_KEYUP) {
+    //     if (e->key.keysym.sym == SDLK_w) { velocity.z = 0; }
+    //     if (e->key.keysym.sym == SDLK_s) { velocity.z = 0; }
+    //     if (e->key.keysym.sym == SDLK_a) { velocity.x = 0; }
+    //     if (e->key.keysym.sym == SDLK_d) { velocity.x = 0; }
+    // }
+
+    if (e->type == SDL_MOUSEMOTION) {
+        _camera.processMouseMovement(e->motion.xrel, -e->motion.yrel);
+    }
+
+}
+
+void VulkanEngine::UpdateScene()
+{
+    // mainCamera.update();
+
+    glm::mat4 view = _camera.getViewMatrix();
+
+    // camera projection
+    glm::mat4 projection = _camera.getProjMatrix();
+    // invert the Y direction on projection matrix so that we are more similar
+    // to opengl and gltf axis
+    projection[1][1] *= -1;
+
+    sceneData.view = view;
+    sceneData.proj = projection;
+    sceneData.viewproj = projection * view;
+}
+
 
 void VulkanEngine::run()
 {
@@ -307,6 +362,7 @@ void VulkanEngine::run()
 	//main loop
 	while (!bQuit)
 	{
+        // auto start = std::chrono::system_clock::now();
 		//Handle events on queue
 		while (SDL_PollEvent(&e) != 0)
 		{
@@ -321,8 +377,12 @@ void VulkanEngine::run()
 					freeze_rendering = false;
 				}
 			}
-			ImGui_ImplSDL2_ProcessEvent(&e);
+			
+            ProcessInput(&e);
+            ImGui_ImplSDL2_ProcessEvent(&e);
 		}
+
+        UpdateScene();
 
 		if (freeze_rendering) {
 			//throttle the speed to avoid the endless spinning
@@ -361,6 +421,13 @@ void VulkanEngine::run()
 		ImGui::Render();
 		
 		draw();
+        auto end = std::chrono::high_resolution_clock::now();
+
+        _deltaTime = std::chrono::duration<float>(end - _lastTimePoint).count();
+        
+        _lastTimePoint = end;
+        _frameTimer += _deltaTime;
+        // fmt::printf("%.2f, %.2f\n", _deltaTime, _frameTimer);
 	}
 }
 
@@ -389,7 +456,6 @@ void VulkanEngine::immediate_submit(std::function<void(VkCommandBuffer cmd)>&& f
 	VK_CHECK(vkWaitForFences(_device, 1, &_immFence, true, 9999999999));
 }
 
-//> alloc_buffer
 AllocatedBuffer VulkanEngine::create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage)
 {
 	// allocate buffer
@@ -410,7 +476,6 @@ AllocatedBuffer VulkanEngine::create_buffer(size_t allocSize, VkBufferUsageFlags
 
 	return newBuffer;
 }
-//< alloc_buffer
 
 GPUMeshBuffers VulkanEngine::uploadMesh(std::span<uint32_t> indices, std::span<Vertex> vertices)
 {
@@ -465,11 +530,11 @@ GPUMeshBuffers VulkanEngine::uploadMesh(std::span<uint32_t> indices, std::span<V
 	return newSurface;
 //< mesh_create_2
 }
+
 void VulkanEngine::destroy_buffer(const AllocatedBuffer& buffer)
 {
 	vmaDestroyBuffer(_allocator, buffer.buffer, buffer.allocation);
 }
-
 
 AllocatedImage VulkanEngine::create_image(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped)
 {
