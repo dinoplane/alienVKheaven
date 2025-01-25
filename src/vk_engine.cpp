@@ -300,12 +300,12 @@ void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
 
 	GPUDrawPushConstants push_constants;
 	push_constants.worldMatrix = sceneData.viewproj;
-	push_constants.vertexBuffer = testMeshes[2]->meshBuffers.vertexBufferAddress;
+	push_constants.vertexBuffer = testMeshes[0]->meshBuffers.vertexBufferAddress;
 
 	vkCmdPushConstants(cmd, _meshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &push_constants);
-	vkCmdBindIndexBuffer(cmd, testMeshes[2]->meshBuffers.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+	vkCmdBindIndexBuffer(cmd, testMeshes[0]->meshBuffers.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
-	vkCmdDrawIndexed(cmd, testMeshes[2]->surfaces[0].count, 1, testMeshes[2]->surfaces[0].startIndex, 0, 0);
+	vkCmdDrawIndexed(cmd, testMeshes[0]->surfaces[0].count, 1, testMeshes[0]->surfaces[0].startIndex, 0, 0);
 
 	vkCmdEndRendering(cmd);
 }
