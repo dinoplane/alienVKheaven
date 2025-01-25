@@ -3,7 +3,33 @@
 
 #pragma once
 
+
+#include <SDL.h>
+#include <SDL_vulkan.h>
+
 #include <vk_types.h>
+#include <vk_initializers.h>
+
+#include "VkBootstrap.h"
+#include <array>
+#include <iostream>
+#include <fstream>
+
+#include "imgui.h"
+#include "imgui_impl_sdl2.h"
+#include "imgui_impl_vulkan.h"
+
+#include "vk_images.h"
+#include "vk_pipelines.h"
+#include "vk_descriptors.h"
+#include "vk_loader.h"
+#include <glm/gtx/transform.hpp>
+
+#include "vk_mem_alloc.h"
+
+
+
+constexpr bool bUseValidationLayers = true;
 
 struct DeletionQueue
 {
@@ -31,8 +57,35 @@ struct FrameData {
 	VkCommandBuffer _mainCommandBuffer;
 
 	DeletionQueue _deletionQueue;
-	// DescriptorAllocatorGrowable _frameDescriptors;
+	DescriptorAllocator _frameDescriptors;
 };
+
+
+struct ComputePushConstants {
+	glm::vec4 data1;
+	glm::vec4 data2;
+	glm::vec4 data3;
+	glm::vec4 data4;
+};
+
+struct ComputeEffect {
+	const char* name;
+
+	VkPipeline pipeline;
+	VkPipelineLayout layout;
+
+	ComputePushConstants data;
+};
+
+struct GPUSceneData {
+    glm::mat4 view;
+    glm::mat4 proj;
+    glm::mat4 viewproj;
+    glm::vec4 ambientColor;
+    glm::vec4 sunlightDirection; // w for sun power
+    glm::vec4 sunlightColor;
+};
+
 
 constexpr unsigned int FRAME_OVERLAP = 2;
 
@@ -61,15 +114,46 @@ public:
 	VkFormat _swapchainImageFormat;
 	VkExtent2D _swapchainExtent;
 	VkExtent2D _drawExtent;
+	float renderScale = 1.f;
 
+
+	// Pipeline Layouts
+	VkPipeline _gradientPipeline;
+	VkPipelineLayout _gradientPipelineLayout;
+	std::vector<ComputeEffect> backgroundEffects;
+	int currentBackgroundEffect{ 0 };
+
+	VkPipelineLayout _meshPipelineLayout;
+	VkPipeline _meshPipeline;
+
+	VkDescriptorSetLayout _gpuSceneDataDescriptorLayout;
+	VkDescriptorSetLayout _singleImageDescriptorLayout;
+
+
+	// Swapchain
 	std::vector<VkFramebuffer> _framebuffers;
 	std::vector<VkImage> _swapchainImages;
 	std::vector<VkImageView> _swapchainImageViews;
 
+
 	//draw resources
-	
 	AllocatedImage _drawImage;
 	AllocatedImage _depthImage;
+	DescriptorAllocator globalDescriptorAllocator;
+
+
+	// DescriptorSets
+	VkDescriptorSetLayout _geometryPassDescriptorLayout;
+	VkDescriptorSet _geometryPassDescriptors;
+
+	VkDescriptorSetLayout _uberShaderPassDescriptorLayout;
+	VkDescriptorSet _uberShaderPassDescriptors;
+
+	VkDescriptorSetLayout _postProcessPassDescriptorLayout;
+	VkDescriptorSet _postProcessPassDescriptors;
+
+	VkDescriptorSetLayout _drawImageDescriptorLayout;
+	VkDescriptorSet _drawImageDescriptors;
 
 
 	// immediate submit structures
@@ -78,10 +162,25 @@ public:
 	VkCommandPool _immCommandPool;
 
 	FrameData _frames[FRAME_OVERLAP];
-
+	FrameData& get_current_frame() { return _frames[_frameNumber % FRAME_OVERLAP]; };
 
 	DeletionQueue _mainDeletionQueue;
 	VmaAllocator _allocator; //vma lib allocator
+
+
+	//Default Data
+	AllocatedImage _whiteImage;
+	AllocatedImage _blackImage;
+	AllocatedImage _greyImage;
+	AllocatedImage _errorCheckerboardImage;
+
+    VkSampler _defaultSamplerLinear;
+	VkSampler _defaultSamplerNearest;
+
+	GPUMeshBuffers rectangle;
+	std::vector<std::shared_ptr<MeshAsset>> testMeshes;
+	
+	GPUSceneData sceneData;
 
 
 	static VulkanEngine& Get();
@@ -89,20 +188,36 @@ public:
 	bool resize_requested{false};
 	bool freeze_rendering{false};
 
+
 	//initializes everything in the engine
 	void init();
+
 
 	//shuts down the engine
 	void cleanup();
 
+
 	//draw loop
 	void draw();
+
 
 	//run main loop
 	void run();
 
 
+
+	void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
+
+	GPUMeshBuffers uploadMesh(std::span<uint32_t> indices, std::span<Vertex> vertices);
+
+	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+	void destroy_buffer(const AllocatedBuffer& buffer);
+	AllocatedImage create_image(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
+	AllocatedImage create_image(void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
+	void destroy_image(const AllocatedImage& img);
+
 	private:
+
 	void InitVulkan();
 	
 	void InitSwapchain();
@@ -113,11 +228,18 @@ public:
 	void InitCommands();
 	void InitSyncStructures();
 	void InitDescriptors();
+	
 	void InitPipelines();
+	void InitBackgroundPipelines();
+	void InitGraphicsPipelines();
+
+
 	void InitImgui();
 	void InitDefaultData();
 
-
+	void DrawBackground(VkCommandBuffer cmd);
+	void DrawGeometry(VkCommandBuffer cmd);
+	void DrawImgui(VkCommandBuffer cmd, VkImageView targetImageView);
 
 
 };

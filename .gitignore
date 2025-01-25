@@ -1,3 +1,9 @@
 /build
 /bin
 /assets/brickadia
+
+/out
+/.vs
+/.vscode
+/.idea
+*.spv
