@@ -87,6 +87,22 @@ struct GPUSceneData {
     glm::vec4 sunlightColor;
 };
 
+struct RenderObject {
+	uint32_t indexCount;
+	uint32_t firstIndex;
+	VkBuffer indexBuffer;
+
+	// MaterialInstance* material;
+
+	glm::mat4 transform;
+	VkDeviceAddress vertexBufferAddress;
+};
+
+struct DrawContext {
+	std::vector<RenderObject> OpaqueSurfaces;
+};
+
+
 
 constexpr unsigned int FRAME_OVERLAP = 2;
 

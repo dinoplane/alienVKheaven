@@ -70,6 +70,14 @@ struct GPUDrawPushConstants {
     VkDeviceAddress vertexBuffer;
 };
 
+struct DrawContext;
+// base class for a renderable dynamic object
+class IRenderable {
+
+    virtual void Draw(const glm::mat4& topMatrix, DrawContext& ctx) = 0;
+};
+
+
 struct alignas(16) GPUSphere
 {                               // base alignment | aligned offset
     float centerAndRadius[4];   // 4 | 0
