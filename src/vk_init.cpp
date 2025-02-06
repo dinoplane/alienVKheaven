@@ -249,8 +249,21 @@ void VulkanEngine::InitDescriptors()
         builder.add_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
         _postProcessPassDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_COMPUTE_BIT);
     }
-
     _postProcessPassDescriptors = globalDescriptorAllocator.allocate(_device, _postProcessPassDescriptorLayout);
+
+
+    {
+        DescriptorLayoutBuilder builder;
+        builder.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		builder.add_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		builder.add_binding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		builder.add_binding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		
+        _postProcessPassDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_COMPUTE_BIT);
+    }
+    _postProcessPassDescriptors = globalDescriptorAllocator.allocate(_device, _postProcessPassDescriptorLayout);
+
+
 
 	VkDescriptorImageInfo imgInfo{};
 	imgInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;

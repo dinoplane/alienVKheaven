@@ -86,6 +86,7 @@
         "xtr1common": "cpp",
         "xtree": "cpp",
         "xutility": "cpp",
-        "expected": "cpp"
+        "expected": "cpp",
+        "stdfloat": "cpp"
     }
 }

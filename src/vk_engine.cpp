@@ -42,7 +42,7 @@ void VulkanEngine::init()
 
 	InitDescriptors(); // I don't like this
 
-	InitPipelines();
+	InitPipelines(); // I also don't like this
 
 	InitImgui();
 

@@ -235,6 +235,7 @@ public:
 	void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
 
 	GPUMeshBuffers uploadMesh(std::span<uint32_t> indices, std::span<Vertex> vertices);
+	GPUModelBuffers uploadModel(const LoadedGLTF& loadedGltf);
 
 	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
 	void destroy_buffer(const AllocatedBuffer& buffer);
