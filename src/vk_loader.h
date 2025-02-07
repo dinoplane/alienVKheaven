@@ -6,6 +6,8 @@
 #include <vk_types.h>
 #include <unordered_map>
 #include <filesystem>
+#include <fastgltf/core.hpp>
+#include <fastgltf/tools.hpp>
 
 class VulkanEngine;
 
@@ -117,7 +119,6 @@ struct LoadedGLTF { // holds all the data for a group of gltf files
             refreshTransform(node.worldTransform, c);
         }
     }
-private:
 
     void clearAll();
 };
@@ -144,7 +145,7 @@ public:
     static bool LoadGltfNode(const fastgltf::Asset& gltf, const fastgltf::Node& gltfNode, 
                                 LoadedGLTF* outModel, Node* outNode);
 
-    static GPUMeshBuffers LoadGeometryFromGLTF(LoadedGLTF& inModel, VulkanEngine* engine);
+    static GPUModelBuffers LoadGeometryFromGLTF(LoadedGLTF& inModel, VulkanEngine* engine);
     // static std::optional<std::shared_ptr<LoadedGLTF>> LoadGltfMaterial(VulkanEngine* engine,std::string_view filePath);
     // static std::optional<std::shared_ptr<LoadedGLTF>> LoadGltfImage(VulkanEngine* engine,std::string_view filePath);
 

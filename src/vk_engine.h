@@ -195,8 +195,10 @@ public:
 	VkSampler _defaultSamplerNearest;
 
 	GPUMeshBuffers rectangle;
+	
 	// std::vector<std::shared_ptr<MeshAsset>> testMeshes;
-	std::shared_ptr<LoadedGLTF> testMeshes;
+	std::shared_ptr<LoadedGLTF> modelData;
+	GPUModelBuffers modelBuffers;
 	
 	GPUSceneData sceneData;
 

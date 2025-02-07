@@ -74,10 +74,11 @@ void VulkanEngine::cleanup()
 			_frames[i]._deletionQueue.flush();
 		}
 
-		for (auto& mesh : testMeshes) {
-			destroy_buffer(mesh->meshBuffers.indexBuffer);
-			destroy_buffer(mesh->meshBuffers.vertexBuffer);
-		}
+		//for (auto& mesh : testMeshes) {
+		//	destroy_buffer(mesh->meshBuffers.indexBuffer);
+		//	destroy_buffer(mesh->meshBuffers.vertexBuffer);
+		//}
+		testMeshes->clearAll();
 
 		_mainDeletionQueue.flush();
 
@@ -267,7 +268,9 @@ void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
     });
 
 	//write the buffer
-	GPUSceneData* sceneUniformData = (GPUSceneData*)gpuSceneDataBuffer.allocation->GetMappedData();
+	GPUSceneData* sceneUniformData;
+	vmaMapMemory(_allocator, gpuSceneDataBuffer.allocation, (void**) sceneUniformData);
+
 	*sceneUniformData = sceneData;
 
 	//create a descriptor set that binds that buffer and update it
@@ -280,15 +283,16 @@ void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
 	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _meshPipeline);
 
 	//bind a texture
-	VkDescriptorSet imageSet = get_current_frame()._frameDescriptors.allocate(_device, _singleImageDescriptorLayout);
-	{
-		DescriptorWriter writer;
-		writer.write_image(0, _errorCheckerboardImage.imageView, _defaultSamplerNearest, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+	// VkDescriptorSet imageSet = get_current_frame()._frameDescriptors.allocate(_device, _singleImageDescriptorLayout);
+	// {
+	// 	DescriptorWriter writer;
+	// 	writer.write_image(0, _errorCheckerboardImage.imageView, _defaultSamplerNearest, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
-		writer.update_set(_device, imageSet);
-	}
-
-	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _meshPipelineLayout, 0, 1, &imageSet, 0, nullptr);
+	// 	writer.update_set(_device, imageSet);
+	// }
+	// bind buffers
+	
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _meshPipelineLayout, 0, 1, &_geometryPassDescriptors, 0, nullptr);
 
 	// glm::mat4 view = glm::translate(glm::vec3{ 0,0,-5 });
 	// // camera projection
@@ -300,12 +304,26 @@ void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
 
 	GPUDrawPushConstants push_constants;
 	push_constants.worldMatrix = sceneData.viewproj;
-	push_constants.vertexBuffer = testMeshes[0]->meshBuffers.vertexBufferAddress;
+	push_constants.vertexBuffer = modelBuffers.vertexBufferAddress;
+	push_constants.indexBuffer = modelBuffers.indexBufferAddress;
 
 	vkCmdPushConstants(cmd, _meshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &push_constants);
-	vkCmdBindIndexBuffer(cmd, testMeshes[0]->meshBuffers.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+	//vkCmdBindIndexBuffer(cmd, testMeshes[0]->meshBuffers.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
-	vkCmdDrawIndexed(cmd, testMeshes[0]->surfaces[0].count, 1, testMeshes[0]->surfaces[0].startIndex, 0, 0);
+	//vkCmdDrawIndexed(cmd, testMeshes[0]->surfaces[0].count, 1, testMeshes[0]->surfaces[0].startIndex, 0, 0);
+
+	// m_enable_mci: supports multiDrawIndirect
+	if (m_enable_mci && m_supports_mci)
+	{
+		vkCmdDrawIndexedIndirect(draw_cmd_buffers[i], indirect_call_buffer->get_handle(), 0, cpu_commands.size(), sizeof(cpu_commands[0]));
+	}
+	else
+	{
+		for (size_t j = 0; j < cpu_commands.size(); ++j)
+		{
+			vkCmdDrawIndexedIndirect(draw_cmd_buffers[i], indirect_call_buffer->get_handle(), j * sizeof(cpu_commands[0]), 1, sizeof(cpu_commands[0]));
+		}
+	}
 
 	vkCmdEndRendering(cmd);
 }

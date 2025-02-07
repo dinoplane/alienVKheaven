@@ -43,11 +43,11 @@ layout(set = 0, binding = 0) readonly buffer NodeTransformsBuffer{
 } nodeTransformsData;
 
 
-layout(set = 0, binding = 1) readonly buffer primitiveBuffer{ 
+layout(set = 0, binding = 1) readonly buffer PrimitiveBuffer{ 
     Primitive primitives[];
 } primitiveData;
 
-layout (set = 0, binding = 2) readonly buffer nodePrimitiveBuffer{ 
+layout (set = 0, binding = 2) readonly buffer NodePrimitiveBuffer{ 
     NodePrimitvePair nodePrimitives[];
 } nodePrimitiveData;
 

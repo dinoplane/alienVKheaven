@@ -11,6 +11,9 @@
 #include <fastgltf/core.hpp>
 #include <fastgltf/tools.hpp>
 
+#include "vk_mem_alloc.h"
+
+
 std::optional<std::shared_ptr<LoadedGLTF>> Loader::LoadGltfModel(const std::span<std::string> filePaths){
     std::shared_ptr<LoadedGLTF> scene = std::make_shared<LoadedGLTF>();
     LoadedGLTF& loadedModel = *scene.get();
@@ -52,7 +55,6 @@ std::optional<std::shared_ptr<LoadedGLTF>> Loader::LoadGltfModel(const std::span
             
             if (!Loader::LoadGltfMesh(gltfAsset, gltfMesh, &loadedModel, &loadedMesh, &loadedModel.vertices, &loadedModel.indices, &loadedModel.primitives)){
                 assert(false);
-                return;
             }
         }
 
@@ -267,7 +269,7 @@ void LoadedGLTF::clearAll(){
     modelDataVec.clear();
 }
 
-GPUMeshBuffers Loader::LoadGeometryFromGLTF(LoadedGLTF& inModel, VulkanEngine* engine){
+GPUModelBuffers Loader::LoadGeometryFromGLTF(LoadedGLTF& inModel, VulkanEngine* engine){
     // I feel like uploading buffers is a common operation... we could abstract this code into a helper function/class
     
 
@@ -279,7 +281,7 @@ GPUMeshBuffers Loader::LoadGeometryFromGLTF(LoadedGLTF& inModel, VulkanEngine* e
     const size_t drawCmdBufferVecBufferSize = inModel.drawCmdBufferVec.size() * sizeof(VkDrawIndexedIndirectCommand);
 
     // create buffer on GPU to hold data
-	GPUMeshBuffers modelGeometry;
+	GPUModelBuffers modelGeometry;
 
 	//create vertex buffer
 	modelGeometry.vertexBuffer = engine->create_buffer(vertexBufferSize, 
@@ -304,7 +306,7 @@ GPUMeshBuffers Loader::LoadGeometryFromGLTF(LoadedGLTF& inModel, VulkanEngine* e
          VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
     
     // create primitive buffer
-    modelGeometry.primitiveBuffer = engine->create_buffer(,
+    modelGeometry.primitiveBuffer = engine->create_buffer(primitiveBufferSize,
          VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 
     // create node primitive pair buffer
@@ -321,20 +323,22 @@ GPUMeshBuffers Loader::LoadGeometryFromGLTF(LoadedGLTF& inModel, VulkanEngine* e
 	AllocatedBuffer staging = engine->create_buffer(vertexBufferSize + indexBufferSize + nodeTransformBufferSize + primitiveBufferSize + nodePrimitivePairBufferSize + drawCmdBufferVecBufferSize,
                  VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
 
-	void* data = staging.allocation->GetMappedData();
+    void* mappedData;
+    vmaMapMemory(engine->_allocator, staging.allocation, &mappedData);
+
 
 	// copy vertex buffer
-	memcpy(data, inModel.vertices.data(), vertexBufferSize);
+	memcpy(mappedData, inModel.vertices.data(), vertexBufferSize);
 	// copy index buffer
-	memcpy((char*)data + vertexBufferSize, inModel.indices.data(), indexBufferSize);
+	memcpy((char*)mappedData + vertexBufferSize, inModel.indices.data(), indexBufferSize);
     // copy node transform buffer
-    memcpy((char*)data + vertexBufferSize + indexBufferSize, inModel.nodeTransforms.data(), nodeTransformBufferSize);
+    memcpy((char*)mappedData + vertexBufferSize + indexBufferSize, inModel.nodeTransforms.data(), nodeTransformBufferSize);
     // copy primitive buffer
-    memcpy((char*)data + vertexBufferSize + indexBufferSize + nodeTransformBufferSize, inModel.primitives.data(), primitiveBufferSize);
+    memcpy((char*)mappedData + vertexBufferSize + indexBufferSize + nodeTransformBufferSize, inModel.primitives.data(), primitiveBufferSize);
     // copy node primitive pair buffer
-    memcpy((char*)data + vertexBufferSize + indexBufferSize + nodeTransformBufferSize + primitiveBufferSize, inModel.nodePrimitivePairs.data(), nodePrimitivePairBufferSize);
+    memcpy((char*)mappedData + vertexBufferSize + indexBufferSize + nodeTransformBufferSize + primitiveBufferSize, inModel.nodePrimitivePairs.data(), nodePrimitivePairBufferSize);
     // copy draw command buffer
-    memcpy((char*)data + vertexBufferSize + indexBufferSize + nodeTransformBufferSize + primitiveBufferSize + nodePrimitivePairBufferSize, inModel.drawCmdBufferVec.data(), drawCmdBufferVecBufferSize);
+    memcpy((char*)mappedData + vertexBufferSize + indexBufferSize + nodeTransformBufferSize + primitiveBufferSize + nodePrimitivePairBufferSize, inModel.drawCmdBufferVec.data(), drawCmdBufferVecBufferSize);
 
 	engine->immediate_submit([&](VkCommandBuffer cmd) {
 		VkBufferCopy vertexCopy{ 0 };

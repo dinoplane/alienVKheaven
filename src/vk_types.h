@@ -58,6 +58,13 @@ struct Vertex {
 
 // holds the resources needed for a mesh
 struct GPUMeshBuffers {
+    AllocatedBuffer indexBuffer;
+    AllocatedBuffer vertexBuffer;
+    VkDeviceAddress vertexBufferAddress;
+};
+
+// holds the resources needed for a model
+struct GPUModelBuffers {
     AllocatedBuffer vertexBuffer;
     VkDeviceAddress vertexBufferAddress;
 
@@ -68,19 +75,6 @@ struct GPUMeshBuffers {
     AllocatedBuffer primitiveBuffer;
     AllocatedBuffer nodePrimitivePairBuffer;
     AllocatedBuffer drawCmdBuffer;
-};
-
-// holds the resources needed for a model
-struct GPUModelBuffers {
-
-    AllocatedBuffer indexBuffer;
-    AllocatedBuffer vertexBuffer;
-    VkDeviceAddress vertexBufferAddress;
-
-    AllocatedBuffer meshBuffer;
-    AllocatedBuffer primitiveBuffer;
-    AllocatedBuffer nodeBuffer;
-    AllocatedBuffer nodePrimBuffer;
 };
 
 

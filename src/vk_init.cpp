@@ -577,7 +577,24 @@ void VulkanEngine::InitDefaultData()
 	// testMeshes = Loader::loadGltfMeshes(this,"..\\assets\\basicmesh.glb").value();
 	std::vector<std::string> modelPaths;
 	modelPaths.push_back("..\\assets\\teapot.gltf");
-	testMeshes = Loader::LoadGltfModel(modelPaths).value();
+	modelData = Loader::LoadGltfModel(modelPaths).value();
+
+	modelBuffers = Loader::LoadGeometryFromGLTF(*modelData, this);
+
+	_geometryPassDescriptors = globalDescriptorAllocator.allocate(_device, _geometryPassDescriptorLayout);
+	{
+		DescriptorWriter writer;
+		writer.write_buffer(0, modelBuffers.nodeTransformBuffer.buffer, 
+				modelData->nodeTransforms.size() * sizeof(glm::mat4), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+
+		writer.write_buffer(1, modelBuffers.primitiveBuffer.buffer,
+				modelData->primitives.size() * sizeof(LoadedPrimitive), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+
+		writer.write_buffer(2, modelBuffers.nodePrimitivePairBuffer.buffer,
+				modelData->nodePrimitivePairs.size() * sizeof(NodePrimitivePair), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		writer.update_set(_device, _geometryPassDescriptors);
+	}
+
 	// //3 default textures, white, grey, black. 1 pixel each
 	// uint32_t white = glm::packUnorm4x8(glm::vec4(1, 1, 1, 1));
 	// _whiteImage = create_image((void*)&white, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM,
