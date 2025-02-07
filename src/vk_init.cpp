@@ -254,15 +254,13 @@ void VulkanEngine::InitDescriptors()
 
     {
         DescriptorLayoutBuilder builder;
-        builder.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-		builder.add_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-		builder.add_binding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-		builder.add_binding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+        builder.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER); // node transform buffer
+		builder.add_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER); // primitive buffer
+		builder.add_binding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER); // node primitive index buffer
 		
-        _postProcessPassDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_COMPUTE_BIT);
+        _geometryPassDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_COMPUTE_BIT);
     }
-    _postProcessPassDescriptors = globalDescriptorAllocator.allocate(_device, _postProcessPassDescriptorLayout);
-
+	_geometryPassDescriptors = globalDescriptorAllocator.allocate(_device, _geometryPassDescriptorLayout);
 
 
 	VkDescriptorImageInfo imgInfo{};
@@ -285,6 +283,7 @@ void VulkanEngine::InitDescriptors()
 		globalDescriptorAllocator.destroy_pools(_device);
         vkDestroyDescriptorSetLayout(_device, _drawImageDescriptorLayout, nullptr);
 		vkDestroyDescriptorSetLayout(_device, _postProcessPassDescriptorLayout, nullptr);
+		vkDestroyDescriptorSetLayout(_device, _geometryPassDescriptorLayout, nullptr);
 	});
 
 
@@ -411,7 +410,7 @@ void VulkanEngine::InitGraphicsPipelines()
 	}
 
 	VkShaderModule triangleVertexShader;
-	if (!vkutil::load_shader_module("../shaders/colored_triangle_mesh.vert.spv", _device, &triangleVertexShader)) {
+	if (!vkutil::load_shader_module("../shaders/indirect_mesh.vert.spv", _device, &triangleVertexShader)) {
 		fmt::print("Error when building the vertex shader \n");
 	}
 	else {
@@ -426,11 +425,9 @@ void VulkanEngine::InitGraphicsPipelines()
 	VkPipelineLayoutCreateInfo pipeline_layout_info = vkinit::pipeline_layout_create_info();
 	pipeline_layout_info.pPushConstantRanges = &bufferRange;
 	pipeline_layout_info.pushConstantRangeCount = 1;
-	pipeline_layout_info.pSetLayouts = &_singleImageDescriptorLayout;
+	pipeline_layout_info.pSetLayouts = &_geometryPassDescriptorLayout;
 	pipeline_layout_info.setLayoutCount = 1;
 	VK_CHECK(vkCreatePipelineLayout(_device, &pipeline_layout_info, nullptr, &_meshPipelineLayout));
-
-//< rectangle_shaders
 
 
 	//exactly same as above but with the depth testing set
@@ -577,50 +574,52 @@ void VulkanEngine::InitDefaultData()
 	});
 
 //< init_data
-	testMeshes = Loader::loadGltfMeshes(this,"..\\assets\\basicmesh.glb").value();
+	// testMeshes = Loader::loadGltfMeshes(this,"..\\assets\\basicmesh.glb").value();
+	std::vector<std::string> modelPaths;
+	modelPaths.push_back("..\\assets\\teapot.gltf");
+	testMeshes = Loader::LoadGltfModel(modelPaths).value();
+	// //3 default textures, white, grey, black. 1 pixel each
+	// uint32_t white = glm::packUnorm4x8(glm::vec4(1, 1, 1, 1));
+	// _whiteImage = create_image((void*)&white, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM,
+	// 	VK_IMAGE_USAGE_SAMPLED_BIT);
 
-	//3 default textures, white, grey, black. 1 pixel each
-	uint32_t white = glm::packUnorm4x8(glm::vec4(1, 1, 1, 1));
-	_whiteImage = create_image((void*)&white, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM,
-		VK_IMAGE_USAGE_SAMPLED_BIT);
+	// uint32_t grey = glm::packUnorm4x8(glm::vec4(0.66f, 0.66f, 0.66f, 1));
+	// _greyImage = create_image((void*)&grey, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM,
+	// 	VK_IMAGE_USAGE_SAMPLED_BIT);
 
-	uint32_t grey = glm::packUnorm4x8(glm::vec4(0.66f, 0.66f, 0.66f, 1));
-	_greyImage = create_image((void*)&grey, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM,
-		VK_IMAGE_USAGE_SAMPLED_BIT);
+	// uint32_t black = glm::packUnorm4x8(glm::vec4(0, 0, 0, 0));
+	// _blackImage = create_image((void*)&black, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM,
+	// 	VK_IMAGE_USAGE_SAMPLED_BIT);
 
-	uint32_t black = glm::packUnorm4x8(glm::vec4(0, 0, 0, 0));
-	_blackImage = create_image((void*)&black, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM,
-		VK_IMAGE_USAGE_SAMPLED_BIT);
+	// //checkerboard image
+	// uint32_t magenta = glm::packUnorm4x8(glm::vec4(1, 0, 1, 1));
+	// std::array<uint32_t, 16 *16 > pixels; //for 16x16 checkerboard texture
+	// for (int x = 0; x < 16; x++) {
+	// 	for (int y = 0; y < 16; y++) {
+	// 		pixels[y*16 + x] = ((x % 2) ^ (y % 2)) ? magenta : black;
+	// 	}
+	// }
+	// _errorCheckerboardImage = create_image(pixels.data(), VkExtent3D{16, 16, 1}, VK_FORMAT_R8G8B8A8_UNORM,
+	// 	VK_IMAGE_USAGE_SAMPLED_BIT);
 
-	//checkerboard image
-	uint32_t magenta = glm::packUnorm4x8(glm::vec4(1, 0, 1, 1));
-	std::array<uint32_t, 16 *16 > pixels; //for 16x16 checkerboard texture
-	for (int x = 0; x < 16; x++) {
-		for (int y = 0; y < 16; y++) {
-			pixels[y*16 + x] = ((x % 2) ^ (y % 2)) ? magenta : black;
-		}
-	}
-	_errorCheckerboardImage = create_image(pixels.data(), VkExtent3D{16, 16, 1}, VK_FORMAT_R8G8B8A8_UNORM,
-		VK_IMAGE_USAGE_SAMPLED_BIT);
+	// VkSamplerCreateInfo sampl = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
 
-	VkSamplerCreateInfo sampl = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
+	// sampl.magFilter = VK_FILTER_NEAREST;
+	// sampl.minFilter = VK_FILTER_NEAREST;
 
-	sampl.magFilter = VK_FILTER_NEAREST;
-	sampl.minFilter = VK_FILTER_NEAREST;
+	// vkCreateSampler(_device, &sampl, nullptr, &_defaultSamplerNearest);
 
-	vkCreateSampler(_device, &sampl, nullptr, &_defaultSamplerNearest);
+	// sampl.magFilter = VK_FILTER_LINEAR;
+	// sampl.minFilter = VK_FILTER_LINEAR;
+	// vkCreateSampler(_device, &sampl, nullptr, &_defaultSamplerLinear);
 
-	sampl.magFilter = VK_FILTER_LINEAR;
-	sampl.minFilter = VK_FILTER_LINEAR;
-	vkCreateSampler(_device, &sampl, nullptr, &_defaultSamplerLinear);
+	// _mainDeletionQueue.push_function([&](){
+	// 	vkDestroySampler(_device,_defaultSamplerNearest,nullptr);
+	// 	vkDestroySampler(_device,_defaultSamplerLinear,nullptr);
 
-	_mainDeletionQueue.push_function([&](){
-		vkDestroySampler(_device,_defaultSamplerNearest,nullptr);
-		vkDestroySampler(_device,_defaultSamplerLinear,nullptr);
-
-		destroy_image(_whiteImage);
-		destroy_image(_greyImage);
-		destroy_image(_blackImage);
-		destroy_image(_errorCheckerboardImage);
-	});
+	// 	destroy_image(_whiteImage);
+	// 	destroy_image(_greyImage);
+	// 	destroy_image(_blackImage);
+	// 	destroy_image(_errorCheckerboardImage);
+	// });
 }

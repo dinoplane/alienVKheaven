@@ -1,5 +1,5 @@
 //glsl version 4.5
-#version 450
+#version 460 core
 
 //shader input
 layout (location = 0) in vec3 inColor;

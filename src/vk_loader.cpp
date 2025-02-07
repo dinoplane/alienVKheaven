@@ -11,7 +11,7 @@
 #include <fastgltf/core.hpp>
 #include <fastgltf/tools.hpp>
 
-std::optional<std::shared_ptr<LoadedGLTF>> Loader::LoadGltfModel(std::span<std::string_view> filePaths){
+std::optional<std::shared_ptr<LoadedGLTF>> Loader::LoadGltfModel(const std::span<std::string> filePaths){
     std::shared_ptr<LoadedGLTF> scene = std::make_shared<LoadedGLTF>();
     LoadedGLTF& loadedModel = *scene.get();
     fastgltf::Parser parser {};
@@ -268,7 +268,7 @@ void LoadedGLTF::clearAll(){
 }
 
 GPUMeshBuffers Loader::LoadGeometryFromGLTF(LoadedGLTF& inModel, VulkanEngine* engine){
-    // I feel like uploading buffers is a common operation... we could abstract this code into a helper function
+    // I feel like uploading buffers is a common operation... we could abstract this code into a helper function/class
     
 
     const size_t vertexBufferSize = inModel.vertices.size() * sizeof(Vertex);
@@ -287,12 +287,17 @@ GPUMeshBuffers Loader::LoadGeometryFromGLTF(LoadedGLTF& inModel, VulkanEngine* e
 		VMA_MEMORY_USAGE_GPU_ONLY);
 
 	//find the adress of the vertex buffer
-	VkBufferDeviceAddressInfo deviceAddressInfo{ .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,.buffer = modelGeometry.vertexBuffer.buffer };
-	modelGeometry.vertexBufferAddress = vkGetBufferDeviceAddress(engine->_device, &deviceAddressInfo);
+	VkBufferDeviceAddressInfo deviceVtxAddressInfo{ .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,.buffer = modelGeometry.vertexBuffer.buffer };
+	modelGeometry.vertexBufferAddress = vkGetBufferDeviceAddress(engine->_device, &deviceVtxAddressInfo);
 
 	//create index buffer
 	modelGeometry.indexBuffer = engine->create_buffer(indexBufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 		VMA_MEMORY_USAGE_GPU_ONLY);
+
+	//find the adress of the index buffer
+	VkBufferDeviceAddressInfo deviceIdxAddressInfo{ .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,.buffer = modelGeometry.indexBuffer.buffer };
+	modelGeometry.indexBufferAddress = vkGetBufferDeviceAddress(engine->_device, &deviceIdxAddressInfo);
+
 
     // create node transform buffer
     modelGeometry.nodeTransformBuffer = engine->create_buffer(nodeTransformBufferSize,

@@ -132,7 +132,7 @@ class Loader {
 public:
     // static std::optional<std::shared_ptr<LoadedGLTF>> LoadGltfModel(const std::string_view filePath);
 
-    static std::optional<std::shared_ptr<LoadedGLTF>> LoadGltfModel(const std::span<std::string_view> filePathsh);
+    static std::optional<std::shared_ptr<LoadedGLTF>> LoadGltfModel( const std::span<std::string> filePaths);
 
 
     static bool LoadGltfMesh(const fastgltf::Asset& gltfAsset, const fastgltf::Mesh& gltfMesh,
