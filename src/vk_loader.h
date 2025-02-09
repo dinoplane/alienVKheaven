@@ -145,9 +145,9 @@ public:
     static bool LoadGltfNode(const fastgltf::Asset& gltf, const fastgltf::Node& gltfNode, 
                                 LoadedGLTF* outModel, Node* outNode);
 
-    static GPUModelBuffers LoadGeometryFromGLTF(LoadedGLTF& inModel, VulkanEngine* engine);
+    static GPUModelBuffers LoadGeometryFromGLTF(const LoadedGLTF& inModel, VulkanEngine* engine);
     // static std::optional<std::shared_ptr<LoadedGLTF>> LoadGltfMaterial(VulkanEngine* engine,std::string_view filePath);
     // static std::optional<std::shared_ptr<LoadedGLTF>> LoadGltfImage(VulkanEngine* engine,std::string_view filePath);
-
+    static void DestroyModelData(const GPUModelBuffers& inModelBuffers, VulkanEngine* engine);
 };
 

@@ -140,7 +140,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> Loader::LoadGltfModel(const std::span
 }
 
 
-bool LoadGltfMesh(const fastgltf::Asset& gltfAsset, const fastgltf::Mesh& gltfMesh,
+bool Loader::LoadGltfMesh(const fastgltf::Asset& gltfAsset, const fastgltf::Mesh& gltfMesh,
                         LoadedGLTF* outModel, LoadedMesh* outMesh, 
                         std::vector<Vertex>* vertices, std::vector<uint32_t>* indices,
                         std::vector<LoadedPrimitive>* primitives){
@@ -269,7 +269,7 @@ void LoadedGLTF::clearAll(){
     modelDataVec.clear();
 }
 
-GPUModelBuffers Loader::LoadGeometryFromGLTF(LoadedGLTF& inModel, VulkanEngine* engine){
+GPUModelBuffers Loader::LoadGeometryFromGLTF(const LoadedGLTF& inModel, VulkanEngine* engine){
     // I feel like uploading buffers is a common operation... we could abstract this code into a helper function/class
     
 
@@ -293,7 +293,8 @@ GPUModelBuffers Loader::LoadGeometryFromGLTF(LoadedGLTF& inModel, VulkanEngine* 
 	modelGeometry.vertexBufferAddress = vkGetBufferDeviceAddress(engine->_device, &deviceVtxAddressInfo);
 
 	//create index buffer
-	modelGeometry.indexBuffer = engine->create_buffer(indexBufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+	modelGeometry.indexBuffer = engine->create_buffer(indexBufferSize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 		VMA_MEMORY_USAGE_GPU_ONLY);
 
 	//find the adress of the index buffer
@@ -385,3 +386,11 @@ GPUModelBuffers Loader::LoadGeometryFromGLTF(LoadedGLTF& inModel, VulkanEngine* 
 	return modelGeometry;
 }
 
+void Loader::DestroyModelData(const GPUModelBuffers& modelData, VulkanEngine* engine){
+    engine->destroy_buffer(modelData.vertexBuffer);
+    engine->destroy_buffer(modelData.indexBuffer);
+    engine->destroy_buffer(modelData.nodeTransformBuffer);
+    engine->destroy_buffer(modelData.primitiveBuffer);
+    engine->destroy_buffer(modelData.nodePrimitivePairBuffer);
+    engine->destroy_buffer(modelData.drawCmdBuffer);
+}

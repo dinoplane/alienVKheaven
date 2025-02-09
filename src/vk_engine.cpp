@@ -78,7 +78,7 @@ void VulkanEngine::cleanup()
 		//	destroy_buffer(mesh->meshBuffers.indexBuffer);
 		//	destroy_buffer(mesh->meshBuffers.vertexBuffer);
 		//}
-		testMeshes->clearAll();
+		modelData->clearAll();
 
 		_mainDeletionQueue.flush();
 
@@ -308,22 +308,9 @@ void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
 	push_constants.indexBuffer = modelBuffers.indexBufferAddress;
 
 	vkCmdPushConstants(cmd, _meshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &push_constants);
-	//vkCmdBindIndexBuffer(cmd, testMeshes[0]->meshBuffers.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+	
+	vkCmdDrawIndexedIndirect(cmd, modelBuffers.drawCmdBuffer.buffer, 0, modelData->drawCmdBufferVec.size(), sizeof(VkDrawIndexedIndirectCommand));
 
-	//vkCmdDrawIndexed(cmd, testMeshes[0]->surfaces[0].count, 1, testMeshes[0]->surfaces[0].startIndex, 0, 0);
-
-	// m_enable_mci: supports multiDrawIndirect
-	if (m_enable_mci && m_supports_mci)
-	{
-		vkCmdDrawIndexedIndirect(draw_cmd_buffers[i], indirect_call_buffer->get_handle(), 0, cpu_commands.size(), sizeof(cpu_commands[0]));
-	}
-	else
-	{
-		for (size_t j = 0; j < cpu_commands.size(); ++j)
-		{
-			vkCmdDrawIndexedIndirect(draw_cmd_buffers[i], indirect_call_buffer->get_handle(), j * sizeof(cpu_commands[0]), 1, sizeof(cpu_commands[0]));
-		}
-	}
 
 	vkCmdEndRendering(cmd);
 }

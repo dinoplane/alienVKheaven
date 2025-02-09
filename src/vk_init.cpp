@@ -27,6 +27,11 @@ void VulkanEngine::InitVulkan()
 	features12.bufferDeviceAddress = true;
 	features12.descriptorIndexing = true;
 
+	VkPhysicalDeviceVulkan11Features features11{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};	
+	features11.shaderDrawParameters = true;
+
+
+
 	//use vkbootstrap to select a gpu. 
 	//We want a gpu that can write to the SDL surface and supports vulkan 1.2
 	vkb::PhysicalDeviceSelector selector{ vkb_inst };
@@ -34,6 +39,7 @@ void VulkanEngine::InitVulkan()
 		.set_minimum_version(1, 3)
 		.set_required_features_13(features)
 		.set_required_features_12(features12)
+		.set_required_features_11(features11)
 		.set_surface(_surface)
 		.select()
 		.value();
@@ -258,7 +264,7 @@ void VulkanEngine::InitDescriptors()
 		builder.add_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER); // primitive buffer
 		builder.add_binding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER); // node primitive index buffer
 		
-        _geometryPassDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_COMPUTE_BIT);
+        _geometryPassDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_VERTEX_BIT);
     }
 	_geometryPassDescriptors = globalDescriptorAllocator.allocate(_device, _geometryPassDescriptorLayout);
 
@@ -594,6 +600,10 @@ void VulkanEngine::InitDefaultData()
 				modelData->nodePrimitivePairs.size() * sizeof(NodePrimitivePair), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 		writer.update_set(_device, _geometryPassDescriptors);
 	}
+
+	_mainDeletionQueue.push_function([&](){
+		Loader::DestroyModelData(modelBuffers, this);
+	});
 
 	// //3 default textures, white, grey, black. 1 pixel each
 	// uint32_t white = glm::packUnorm4x8(glm::vec4(1, 1, 1, 1));
