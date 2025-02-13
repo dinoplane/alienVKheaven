@@ -49,7 +49,7 @@ void VulkanEngine::InitVulkan()
 
 	auto inst_ret = builder.build();
 
-	if (!inst_ret.has_value()) {
+	if (!inst_ret.has_value()) {	
 		fmt::print("Couldnt create Vulkan instance.");
 		assert(false);
 	}
@@ -658,7 +658,7 @@ void VulkanEngine::InitDefaultData()
 //< init_data
 	// testMeshes = Loader::loadGltfMeshes(this,"..\\assets\\basicmesh.glb").value();
 	std::vector<std::string> modelPaths;
-	modelPaths.push_back("..\\assets\\fumo\\scene.gltf");
+	modelPaths.push_back("..\\assets\\DragonDispersion.glb");
 	modelData = Loader::LoadGltfModel(modelPaths).value();
 	Loader::PrintModelData(*modelData);
 	modelBuffers = Loader::LoadGeometryFromGLTF(*modelData, this);

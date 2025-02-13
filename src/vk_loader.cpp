@@ -17,7 +17,12 @@
 std::optional<std::shared_ptr<LoadedGLTF>> Loader::LoadGltfModel(const std::span<std::string> filePaths){
     std::shared_ptr<LoadedGLTF> scene = std::make_shared<LoadedGLTF>();
     LoadedGLTF& loadedModel = *scene.get();
-    fastgltf::Parser parser {};
+    fastgltf::Parser parser = fastgltf::Parser(
+        fastgltf::Extensions::KHR_materials_specular 
+        | fastgltf::Extensions::KHR_materials_transmission 
+        | fastgltf::Extensions::KHR_materials_ior 
+        | fastgltf::Extensions::KHR_materials_volume
+        | fastgltf::Extensions::KHR_materials_dispersion);
     for (auto& filePath : filePaths){
      
         fmt::print("Loading GLTF: {}\n", filePath);
