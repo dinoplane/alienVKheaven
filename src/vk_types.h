@@ -20,6 +20,20 @@
 #include <glm/mat4x4.hpp>
 #include <glm/vec4.hpp>
 
+extern PFN_vkQueueSubmit2KHR vkQueueSubmit2KHR_;
+#define vkQueueSubmit2KHR vkQueueSubmit2KHR_
+
+extern PFN_vkCmdBeginRenderingKHR vkCmdBeginRenderingKHR_;
+#define vkCmdBeginRenderingKHR vkCmdBeginRenderingKHR_
+
+extern PFN_vkCmdEndRenderingKHR vkCmdEndRenderingKHR_;
+#define vkCmdEndRenderingKHR vkCmdEndRenderingKHR_
+
+extern PFN_vkCmdPipelineBarrier2KHR vkCmdPipelineBarrier2KHR_;
+#define vkCmdPipelineBarrier2KHR vkCmdPipelineBarrier2KHR_
+
+extern PFN_vkCmdBlitImage2KHR vkCmdBlitImage2KHR_;
+#define vkCmdBlitImage2KHR vkCmdBlitImage2KHR_
 
 #define VK_CHECK(x)                                                     \
     do {                                                                \
@@ -60,17 +74,12 @@ struct Vertex {
 struct GPUMeshBuffers {
     AllocatedBuffer indexBuffer;
     AllocatedBuffer vertexBuffer;
-    VkDeviceAddress vertexBufferAddress;
 };
 
 // holds the resources needed for a model
 struct GPUModelBuffers {
     AllocatedBuffer vertexBuffer;
-    VkDeviceAddress vertexBufferAddress;
-
     AllocatedBuffer indexBuffer;
-    VkDeviceAddress indexBufferAddress;
-
     AllocatedBuffer nodeTransformBuffer;
     AllocatedBuffer primitiveBuffer;
     AllocatedBuffer nodePrimitivePairBuffer;
@@ -83,8 +92,6 @@ struct GPUModelBuffers {
 // push constants for our mesh object draws
 struct GPUDrawPushConstants {
     glm::mat4 worldMatrix;
-    VkDeviceAddress vertexBuffer;
-    VkDeviceAddress indexBuffer;
 };
 
 struct DrawContext;

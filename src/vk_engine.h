@@ -32,6 +32,8 @@
 
 constexpr bool bUseValidationLayers = true;
 
+
+
 struct DeletionQueue
 {
 	std::deque<std::function<void()>> deletors;
@@ -87,20 +89,6 @@ struct GPUSceneData {
     glm::vec4 sunlightColor;
 };
 
-struct RenderObject {
-	uint32_t indexCount;
-	uint32_t firstIndex;
-	VkBuffer indexBuffer;
-
-	// MaterialInstance* material;
-
-	glm::mat4 transform;
-	VkDeviceAddress vertexBufferAddress;
-};
-
-struct DrawContext {
-	std::vector<RenderObject> OpaqueSurfaces;
-};
 
 
 
@@ -159,7 +147,11 @@ public:
 	DescriptorAllocator globalDescriptorAllocator;
 
 
+
 	// DescriptorSets
+	VkDescriptorSetLayout _vertexDescriptorLayout;
+	VkDescriptorSet _vertexDescriptors;
+	
 	VkDescriptorSetLayout _geometryPassDescriptorLayout;
 	VkDescriptorSet _geometryPassDescriptors;
 
@@ -171,6 +163,8 @@ public:
 
 	VkDescriptorSetLayout _drawImageDescriptorLayout;
 	VkDescriptorSet _drawImageDescriptors;
+
+	VkDescriptorSetLayout _gltfPipelineDescriptorLayout[2];
 
 
 	// immediate submit structures
@@ -238,7 +232,7 @@ public:
 	void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
 
 	GPUMeshBuffers uploadMesh(std::span<uint32_t> indices, std::span<Vertex> vertices);
-	GPUModelBuffers uploadModel(const LoadedGLTF& loadedGltf);
+	//GPUModelBuffers uploadModel(const LoadedGLTF& loadedGltf);
 
 	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
 	void destroy_buffer(const AllocatedBuffer& buffer);
@@ -271,6 +265,18 @@ public:
 	void DrawGeometry(VkCommandBuffer cmd);
 	void DrawImgui(VkCommandBuffer cmd, VkImageView targetImageView);
 
+	bool bQuit {false};
+	enum InputAction {
+		FORWARD = 0,
+		BACKWARD = 1,
+		LEFT = 2,
+		RIGHT = 3,
+		UP = 4,
+		DOWN = 5
+	};
+	bool buttonState[6] {false, false, false, false, false, false};
+
 	void ProcessInput(SDL_Event* e);
+	void HandleKeyboardInput(const SDL_KeyboardEvent& key);
 	void UpdateScene();
 };

@@ -1,53 +1,126 @@
 #include "vk_engine.h"
 
+bool isDeviceSuitable(VkPhysicalDevice device) {
+    VkPhysicalDeviceProperties deviceProperties;
+    VkPhysicalDeviceFeatures deviceFeatures;
+    vkGetPhysicalDeviceProperties(device, &deviceProperties);
+    vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+
+    return deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
+           deviceFeatures.geometryShader;
+}
+
+PFN_vkQueueSubmit2KHR vkQueueSubmit2KHR_ = nullptr;
+PFN_vkCmdBeginRenderingKHR vkCmdBeginRenderingKHR_ = nullptr;
+PFN_vkCmdEndRenderingKHR vkCmdEndRenderingKHR_ = nullptr;
+PFN_vkCmdPipelineBarrier2KHR vkCmdPipelineBarrier2KHR_ = nullptr;
+PFN_vkCmdBlitImage2KHR vkCmdBlitImage2KHR_ = nullptr;
+
 void VulkanEngine::InitVulkan()
 {
 	vkb::InstanceBuilder builder;
-
+	std::cout << "Initializing Vulkan 1" << std::endl;
 	//make the vulkan instance, with basic debug features
-	auto inst_ret = builder.set_app_name("Example Vulkan Application")
+	builder.set_app_name("Example Vulkan Application")
 		.request_validation_layers(bUseValidationLayers)
 		.use_default_debug_messenger()
-		.require_api_version(1, 3, 0)
-		.build();
+		.require_api_version(1, 2, 0);
+
+	// // enable the VK_KHR_synchronization2 and VK_KHR_dynamic_rendering extensions if available
+	auto system_info_ret = vkb::SystemInfo::get_system_info();
+	if (!system_info_ret) {
+		std::cerr << system_info_ret.error().message().c_str() << "\n";
+		assert(false);
+	}
+	auto system_info = system_info_ret.value();
+	// if (system_info.is_extension_available("VK_KHR_synchronization2_EXTENSION_NAME")) {
+	// 	builder.enable_extension("VK_KHR_synchronization2_EXTENSION_NAME");
+	// } else {
+	// 	fmt::print("VK_KHR_synchronization2_EXTENSION_NAME not available\n");
+	// 	assert(false);
+	// }
+
+	// if (system_info.is_extension_available("VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME")) {
+	// 	builder.enable_extension("VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME");
+	// } else {
+	// 	fmt::print("VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME not available\n");
+	// 	assert(false);
+	// }
+
+	auto inst_ret = builder.build();
+
+	if (!inst_ret.has_value()) {
+		fmt::print("Couldnt create Vulkan instance.");
+		assert(false);
+	}
 
 	vkb::Instance vkb_inst = inst_ret.value();
 
 	//grab the instance 
 	_instance = vkb_inst.instance;
 	_debug_messenger = vkb_inst.debug_messenger;
+	std::cout << "Initializing Vulkan 2" << std::endl;
 
-	SDL_Vulkan_CreateSurface(_window, _instance, &_surface);
+	SDL_bool err = SDL_Vulkan_CreateSurface(_window, _instance, &_surface);
+	if (err != SDL_TRUE) {
+		fmt::print("Could not create vulkan surface: {}\n", SDL_GetError());
+		assert(false);
+	}
 
-	VkPhysicalDeviceVulkan13Features features{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
-	features.dynamicRendering = true;
-	features.synchronization2 = true;
+	// VkPhysicalDeviceVulkan13Features features{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
+	// features.dynamicRendering = true;
+	// features.synchronization2 = true;
 
 	VkPhysicalDeviceVulkan12Features features12{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};	
-	features12.bufferDeviceAddress = true;
+	//features12.bufferDeviceAddress = true;
 	features12.descriptorIndexing = true;
 
 	VkPhysicalDeviceVulkan11Features features11{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};	
 	features11.shaderDrawParameters = true;
 
-
+	std::cout << "Initializing Vulkan 3" << std::endl;
 
 	//use vkbootstrap to select a gpu. 
 	//We want a gpu that can write to the SDL surface and supports vulkan 1.2
-	vkb::PhysicalDeviceSelector selector{ vkb_inst };
-	vkb::PhysicalDevice physicalDevice = selector
-		.set_minimum_version(1, 3)
-		.set_required_features_13(features)
+	vkb::PhysicalDeviceSelector selector  ( vkb_inst );
+	std::cout << "Initializing Vulkan 3.1" << std::endl;
+
+	fmt::print("{}.{}.{}\n",
+		VK_API_VERSION_MAJOR(4210992),
+		VK_API_VERSION_MINOR(4210992),
+		VK_API_VERSION_PATCH(4210992)
+	);
+	
+	auto physical_device_selector_return = selector
+		.set_minimum_version(1, 2)
+		// .set_required_features_13(features)
+		 .add_required_extension(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME)
+		 .add_required_extension(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME)
+		 .add_required_extension(VK_KHR_COPY_COMMANDS_2_EXTENSION_NAME)
 		.set_required_features_12(features12)
 		.set_required_features_11(features11)
 		.set_surface(_surface)
-		.select()
-		.value();
+		.select();
 
-		//physicalDevice.features.
+
+	if (!physical_device_selector_return) {
+		fmt::print("Couldnt set select physical device.\n");
+		assert(false);
+	}
 	//create the final vulkan device
+	vkb::PhysicalDevice physicalDevice = physical_device_selector_return.value();
 
+	std::cout << "Initializing Vulkan 4" << std::endl;
 	vkb::DeviceBuilder deviceBuilder{ physicalDevice };
+
+	VkPhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeatures{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES};
+	dynamicRenderingFeatures.dynamicRendering = VK_TRUE;
+	deviceBuilder.add_pNext(&dynamicRenderingFeatures);
+
+	VkPhysicalDeviceSynchronization2FeaturesKHR synchronization2Features{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR};
+	synchronization2Features.synchronization2 = VK_TRUE;
+	deviceBuilder.add_pNext(&synchronization2Features);
+
 
 	vkb::Device vkbDevice = deviceBuilder.build().value();
 
@@ -55,10 +128,19 @@ void VulkanEngine::InitVulkan()
 	_device = vkbDevice.device;
 	_chosenGPU = physicalDevice.physical_device;
 
+
+	vkQueueSubmit2KHR_ = (PFN_vkQueueSubmit2KHR) vkGetDeviceProcAddr(_device, "vkQueueSubmit2KHR");
+	vkCmdPipelineBarrier2KHR_ = (PFN_vkCmdPipelineBarrier2KHR) vkGetDeviceProcAddr(_device, "vkCmdPipelineBarrier2KHR");
+	vkCmdBeginRenderingKHR_ = (PFN_vkCmdBeginRenderingKHR) vkGetDeviceProcAddr(_device, "vkCmdBeginRenderingKHR");
+	vkCmdEndRenderingKHR_ = (PFN_vkCmdEndRenderingKHR) vkGetDeviceProcAddr(_device, "vkCmdEndRenderingKHR");
+	vkCmdBlitImage2KHR_ = (PFN_vkCmdBlitImage2KHR) vkGetDeviceProcAddr(_device, "vkCmdBlitImage2KHR");
+
+	std::cout << "Initializing Vulkan 5" << std::endl;
 	// use vkbootstrap to get a Graphics queue
 	_graphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
 
 	_graphicsQueueFamily = vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
+	std::cout << "Initializing Vulkan 6" << std::endl;
 
 //> vma_init
 	//initialize the memory allocator
@@ -66,13 +148,14 @@ void VulkanEngine::InitVulkan()
 	allocatorInfo.physicalDevice = _chosenGPU;
 	allocatorInfo.device = _device;
 	allocatorInfo.instance = _instance;
-	allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+	// allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 	vmaCreateAllocator(&allocatorInfo, &_allocator);
 
 	_mainDeletionQueue.push_function([&]() {
 		vmaDestroyAllocator(_allocator);
 	});
 //< vma_init
+std::cout << "Initializing Vulkan 7" << std::endl;
 }
 
 void VulkanEngine::InitSwapchain()
@@ -237,7 +320,7 @@ void VulkanEngine::InitDescriptors()
         { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5 },
         { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 5 },
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 5 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 5 }
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10 }
     };
 
 	globalDescriptorAllocator.init(_device, 10, globalSizes);
@@ -257,6 +340,13 @@ void VulkanEngine::InitDescriptors()
     }
     _postProcessPassDescriptors = globalDescriptorAllocator.allocate(_device, _postProcessPassDescriptorLayout);
 
+	{
+        DescriptorLayoutBuilder builder;
+        builder.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER); // node transform buffer
+		
+        _vertexDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_VERTEX_BIT);
+    }
+	_vertexDescriptors = globalDescriptorAllocator.allocate(_device, _vertexDescriptorLayout);
 
     {
         DescriptorLayoutBuilder builder;
@@ -290,6 +380,7 @@ void VulkanEngine::InitDescriptors()
         vkDestroyDescriptorSetLayout(_device, _drawImageDescriptorLayout, nullptr);
 		vkDestroyDescriptorSetLayout(_device, _postProcessPassDescriptorLayout, nullptr);
 		vkDestroyDescriptorSetLayout(_device, _geometryPassDescriptorLayout, nullptr);
+		vkDestroyDescriptorSetLayout(_device, _vertexDescriptorLayout, nullptr);
 	});
 
 
@@ -407,7 +498,7 @@ void VulkanEngine::InitBackgroundPipelines(){
 
 void VulkanEngine::InitGraphicsPipelines()
 {
-    	VkShaderModule triangleFragShader;
+	VkShaderModule triangleFragShader;
 	if (!vkutil::load_shader_module("../shaders/tex_image.frag.spv", _device, &triangleFragShader)) {
 		fmt::print("Error when building the fragment shader \n");
 	}
@@ -428,11 +519,16 @@ void VulkanEngine::InitGraphicsPipelines()
 	bufferRange.size = sizeof(GPUDrawPushConstants);
 	bufferRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
+	std::vector<VkDescriptorSetLayout> gltfLayoutVec;
+	gltfLayoutVec.push_back(_vertexDescriptorLayout);
+	gltfLayoutVec.push_back(_geometryPassDescriptorLayout);
+
+
 	VkPipelineLayoutCreateInfo pipeline_layout_info = vkinit::pipeline_layout_create_info();
 	pipeline_layout_info.pPushConstantRanges = &bufferRange;
 	pipeline_layout_info.pushConstantRangeCount = 1;
-	pipeline_layout_info.pSetLayouts = &_geometryPassDescriptorLayout;
-	pipeline_layout_info.setLayoutCount = 1;
+	pipeline_layout_info.pSetLayouts = gltfLayoutVec.data();
+	pipeline_layout_info.setLayoutCount = gltfLayoutVec.size();
 	VK_CHECK(vkCreatePipelineLayout(_device, &pipeline_layout_info, nullptr, &_meshPipelineLayout));
 
 
@@ -548,46 +644,21 @@ void VulkanEngine::InitImgui()
 
 void VulkanEngine::InitDefaultData()
 {
-	//> init_data
-	std::array<Vertex,4> rect_vertices;
-
-	rect_vertices[0].position = {0.5,-0.5, 0};
-	rect_vertices[1].position = {0.5,0.5, 0};
-	rect_vertices[2].position = {-0.5,-0.5, 0};
-	rect_vertices[3].position = {-0.5,0.5, 0};
-
-	rect_vertices[0].color = {0,0, 0,1};
-	rect_vertices[1].color = { 0.5,0.5,0.5 ,1};
-	rect_vertices[2].color = { 1,0, 0,1 };
-	rect_vertices[3].color = { 0,1, 0,1 };
-
-	std::array<uint32_t,6> rect_indices;
-
-	rect_indices[0] = 0;
-	rect_indices[1] = 1;
-	rect_indices[2] = 2;
-
-	rect_indices[3] = 2;
-	rect_indices[4] = 1;
-	rect_indices[5] = 3;
-
-	rectangle = uploadMesh(rect_indices,rect_vertices);
-
-	//delete the rectangle data on engine shutdown
-	_mainDeletionQueue.push_function([&](){
-		destroy_buffer(rectangle.indexBuffer);
-		destroy_buffer(rectangle.vertexBuffer);
-	});
-
 //< init_data
 	// testMeshes = Loader::loadGltfMeshes(this,"..\\assets\\basicmesh.glb").value();
 	std::vector<std::string> modelPaths;
 	modelPaths.push_back("..\\assets\\teapot.gltf");
 	modelData = Loader::LoadGltfModel(modelPaths).value();
-
+	Loader::PrintModelData(*modelData);
 	modelBuffers = Loader::LoadGeometryFromGLTF(*modelData, this);
 
-	_geometryPassDescriptors = globalDescriptorAllocator.allocate(_device, _geometryPassDescriptorLayout);
+	{
+		DescriptorWriter writer;
+		writer.write_buffer(0, modelBuffers.vertexBuffer.buffer, 
+				modelData->vertices.size() * sizeof(Vertex), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		writer.update_set(_device, _vertexDescriptors);
+	}
+
 	{
 		DescriptorWriter writer;
 		writer.write_buffer(0, modelBuffers.nodeTransformBuffer.buffer, 

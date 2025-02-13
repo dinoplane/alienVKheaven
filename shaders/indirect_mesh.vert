@@ -30,24 +30,20 @@ struct NodePrimitvePair {
 };
 
 
-layout(buffer_reference, std430) readonly buffer VertexBuffer{ 
+layout(set = 0, binding = 0) readonly buffer VertexBuffer{ 
 	Vertex vertices[];
-};
+} vertexBuffer;
 
-layout(buffer_reference, std430) readonly buffer IndexBuffer{ 
-    uint indices[];
-};
-
-layout(set = 0, binding = 0) readonly buffer NodeTransformsBuffer{ 
+layout(set = 1, binding = 0) readonly buffer NodeTransformsBuffer{ 
     mat4 matrices[];
 } nodeTransformsData;
 
 
-layout(set = 0, binding = 1) readonly buffer PrimitiveBuffer{ 
+layout(set = 1, binding = 1) readonly buffer PrimitiveBuffer{ 
     Primitive primitives[];
 } primitiveData;
 
-layout (set = 0, binding = 2) readonly buffer NodePrimitiveBuffer{ 
+layout (set = 1, binding = 2) readonly buffer NodePrimitiveBuffer{ 
     NodePrimitvePair nodePrimitives[];
 } nodePrimitiveData;
 
@@ -55,20 +51,18 @@ layout (set = 0, binding = 2) readonly buffer NodePrimitiveBuffer{
 layout( push_constant ) uniform constants
 {	
 	mat4 render_matrix;
-	VertexBuffer vertexBuffer;
-    IndexBuffer indexBuffer;
 } PushConstants;
 
 
 
 void main() 
 {	
-    uint primitiveIdx = nodePrimitiveData.nodePrimitives[gl_DrawID].primitiveIdx;
-    Primitive primitive = primitiveData.primitives[primitiveIdx];
-    uint indiceIdx = primitive.indexStartIdx + gl_VertexIndex;
-    uint vertexIdx = PushConstants.indexBuffer.indices[indiceIdx];
+    // uint primitiveIdx = nodePrimitiveData.nodePrimitives[gl_DrawID].primitiveIdx;
+    // Primitive primitive = primitiveData.primitives[primitiveIdx];
+    // uint indiceIdx = primitive.indexStartIdx + gl_VertexIndex;
+    // uint vertexIdx = PushConstants.indexBuffer.indices[indiceIdx];
     //load vertex data from device address
-	Vertex v = PushConstants.vertexBuffer.vertices[vertexIdx];
+	Vertex v = vertexBuffer.vertices[gl_VertexIndex];
 
 
     uint nodeIdx = nodePrimitiveData.nodePrimitives[gl_DrawID].nodeIdx;

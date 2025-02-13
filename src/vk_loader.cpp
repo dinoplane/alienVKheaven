@@ -20,7 +20,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> Loader::LoadGltfModel(const std::span
     fastgltf::Parser parser {};
     for (auto& filePath : filePaths){
      
-        fmt::print("Loading GLTF: {}", filePath);
+        fmt::print("Loading GLTF: {}\n", filePath);
 
         constexpr auto gltfOptions = fastgltf::Options::DontRequireValidAssetMember | fastgltf::Options::AllowDouble | fastgltf::Options::LoadGLBBuffers | fastgltf::Options::LoadExternalBuffers;
         // fastgltf::Options::LoadExternalImages;
@@ -70,8 +70,6 @@ std::optional<std::shared_ptr<LoadedGLTF>> Loader::LoadGltfModel(const std::span
                 loadedModel.nodes.push_back( Node{worldTransform, localTransform, static_cast<uint32_t>(*node.meshIndex), UINT32_MAX} );
             } else {
                 loadedModel.nodes.push_back( Node{worldTransform, localTransform, UINT32_MAX, UINT32_MAX} );
-            
-                // loadedModel.nodePropertiesBufferVec.push_back( { modelFromNodeMat } );
             }
             loadedModel.nodeTransforms.push_back(worldTransform);
         });
@@ -115,8 +113,8 @@ std::optional<std::shared_ptr<LoadedGLTF>> Loader::LoadGltfModel(const std::span
                     prim.indexCount, 		// indexCount
                     1,						// instanceCount
                     prim.indexStartIdx,		// firstIndex
-                    prim.vertexStartIdx,	// baseVertex TODO: WHY IS THIS AN INT???? 
-                    0						// baseInstance
+                    prim.vertexStartIdx,	// vertexOffset 
+                    0						// firstInstance
                 } );
             }
         } 
@@ -150,8 +148,9 @@ bool Loader::LoadGltfMesh(const fastgltf::Asset& gltfAsset, const fastgltf::Mesh
 	outMesh->primitiveCount = static_cast<uint32_t>(gltfMesh.primitives.size());
     primitives->resize(initPrimitivesSize + gltfMesh.primitives.size());
 
-    for (auto it = gltfMesh.primitives.begin(); it != gltfMesh.primitives.end(); ++it) {
-		LoadedPrimitive outPrimitive;
+    for (size_t primIdx = 0; primIdx < gltfMesh.primitives.size(); ++primIdx) {
+        const auto* it = &gltfMesh.primitives[primIdx];
+		LoadedPrimitive& outPrimitive = (*primitives)[initPrimitivesSize + primIdx];
         
         auto* positionIt = it->findAttribute("POSITION");
         assert(positionIt != it->attributes.end()); // A mesh primitive is required to hold the POSITION attribute.
@@ -250,7 +249,7 @@ bool Loader::LoadGltfMesh(const fastgltf::Asset& gltfAsset, const fastgltf::Mesh
 		}
         */
 
-		primitives->push_back(outPrimitive);
+		
     }
 
     return true;
@@ -271,7 +270,9 @@ void LoadedGLTF::clearAll(){
 
 GPUModelBuffers Loader::LoadGeometryFromGLTF(const LoadedGLTF& inModel, VulkanEngine* engine){
     // I feel like uploading buffers is a common operation... we could abstract this code into a helper function/class
-    
+    Loader loader;
+
+    loader.Init(engine);
 
     const size_t vertexBufferSize = inModel.vertices.size() * sizeof(Vertex);
 	const size_t indexBufferSize = inModel.indices.size() * sizeof(uint32_t);
@@ -282,109 +283,115 @@ GPUModelBuffers Loader::LoadGeometryFromGLTF(const LoadedGLTF& inModel, VulkanEn
 
     // create buffer on GPU to hold data
 	GPUModelBuffers modelGeometry;
-
+    PrintModelData(inModel);
 	//create vertex buffer
-	modelGeometry.vertexBuffer = engine->create_buffer(vertexBufferSize, 
-        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-		VMA_MEMORY_USAGE_GPU_ONLY);
+    loader.AddBuffer(vertexBufferSize, 
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		VMA_MEMORY_USAGE_GPU_ONLY, (void*) inModel.vertices.data());
 
-	//find the adress of the vertex buffer
-	VkBufferDeviceAddressInfo deviceVtxAddressInfo{ .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,.buffer = modelGeometry.vertexBuffer.buffer };
-	modelGeometry.vertexBufferAddress = vkGetBufferDeviceAddress(engine->_device, &deviceVtxAddressInfo);
 
 	//create index buffer
-	modelGeometry.indexBuffer = engine->create_buffer(indexBufferSize,
-        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-		VMA_MEMORY_USAGE_GPU_ONLY);
-
-	//find the adress of the index buffer
-	VkBufferDeviceAddressInfo deviceIdxAddressInfo{ .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,.buffer = modelGeometry.indexBuffer.buffer };
-	modelGeometry.indexBufferAddress = vkGetBufferDeviceAddress(engine->_device, &deviceIdxAddressInfo);
-
+	loader.AddBuffer(indexBufferSize,
+        VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		VMA_MEMORY_USAGE_GPU_ONLY, (void*) inModel.indices.data());
 
     // create node transform buffer
-    modelGeometry.nodeTransformBuffer = engine->create_buffer(nodeTransformBufferSize,
-         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+    loader.AddBuffer(nodeTransformBufferSize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VMA_MEMORY_USAGE_GPU_ONLY, (void*) inModel.nodeTransforms.data());
     
     // create primitive buffer
-    modelGeometry.primitiveBuffer = engine->create_buffer(primitiveBufferSize,
-         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+    loader.AddBuffer(primitiveBufferSize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, 
+        VMA_MEMORY_USAGE_GPU_ONLY, (void*) inModel.primitives.data());
 
     // create node primitive pair buffer
-    modelGeometry.nodePrimitivePairBuffer = engine->create_buffer(nodePrimitivePairBufferSize,
-         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+    loader.AddBuffer(nodePrimitivePairBufferSize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VMA_MEMORY_USAGE_GPU_ONLY, (void*) inModel.nodePrimitivePairs.data());
 
     // create draw command buffer
-    modelGeometry.drawCmdBuffer = engine->create_buffer(drawCmdBufferVecBufferSize,
-         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT 
-            | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+    loader.AddBuffer(drawCmdBufferVecBufferSize,
+         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
+        VMA_MEMORY_USAGE_GPU_ONLY, (void*) inModel.drawCmdBufferVec.data());
 
 
-    // create staging buffer to copy all the data
-	AllocatedBuffer staging = engine->create_buffer(vertexBufferSize + indexBufferSize + nodeTransformBufferSize + primitiveBufferSize + nodePrimitivePairBufferSize + drawCmdBufferVecBufferSize,
-                 VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
-
-    void* mappedData;
-    vmaMapMemory(engine->_allocator, staging.allocation, &mappedData);
-
-
-	// copy vertex buffer
-	memcpy(mappedData, inModel.vertices.data(), vertexBufferSize);
-	// copy index buffer
-	memcpy((char*)mappedData + vertexBufferSize, inModel.indices.data(), indexBufferSize);
-    // copy node transform buffer
-    memcpy((char*)mappedData + vertexBufferSize + indexBufferSize, inModel.nodeTransforms.data(), nodeTransformBufferSize);
-    // copy primitive buffer
-    memcpy((char*)mappedData + vertexBufferSize + indexBufferSize + nodeTransformBufferSize, inModel.primitives.data(), primitiveBufferSize);
-    // copy node primitive pair buffer
-    memcpy((char*)mappedData + vertexBufferSize + indexBufferSize + nodeTransformBufferSize + primitiveBufferSize, inModel.nodePrimitivePairs.data(), nodePrimitivePairBufferSize);
-    // copy draw command buffer
-    memcpy((char*)mappedData + vertexBufferSize + indexBufferSize + nodeTransformBufferSize + primitiveBufferSize + nodePrimitivePairBufferSize, inModel.drawCmdBufferVec.data(), drawCmdBufferVecBufferSize);
-
-	engine->immediate_submit([&](VkCommandBuffer cmd) {
-		VkBufferCopy vertexCopy{ 0 };
-		vertexCopy.dstOffset = 0;
-		vertexCopy.srcOffset = 0;
-		vertexCopy.size = vertexBufferSize;
-
-		vkCmdCopyBuffer(cmd, staging.buffer, modelGeometry.vertexBuffer.buffer, 1, &vertexCopy);
-
-		VkBufferCopy indexCopy{ 0 };
-		indexCopy.dstOffset = 0;
-		indexCopy.srcOffset = vertexBufferSize;
-		indexCopy.size = indexBufferSize;
-
-		vkCmdCopyBuffer(cmd, staging.buffer, modelGeometry.indexBuffer.buffer, 1, &indexCopy);
-
-        VkBufferCopy nodeTransformCopy{ 0 };
-        nodeTransformCopy.dstOffset = 0;
-        nodeTransformCopy.srcOffset = vertexBufferSize + indexBufferSize;
-        nodeTransformCopy.size = nodeTransformBufferSize;
-        vkCmdCopyBuffer(cmd, staging.buffer, modelGeometry.nodeTransformBuffer.buffer, 1, &nodeTransformCopy);
-
-        VkBufferCopy primitiveCopy{ 0 };
-        primitiveCopy.dstOffset = 0;
-        primitiveCopy.srcOffset = vertexBufferSize + indexBufferSize + nodeTransformBufferSize;
-        primitiveCopy.size = primitiveBufferSize;
-        vkCmdCopyBuffer(cmd, staging.buffer, modelGeometry.primitiveBuffer.buffer, 1, &primitiveCopy);
-
-        VkBufferCopy nodePrimitivePairCopy{ 0 };
-        nodePrimitivePairCopy.dstOffset = 0;
-        nodePrimitivePairCopy.srcOffset = vertexBufferSize + indexBufferSize + nodeTransformBufferSize  + primitiveBufferSize;
-        nodePrimitivePairCopy.size = nodePrimitivePairBufferSize;
-        vkCmdCopyBuffer(cmd, staging.buffer, modelGeometry.nodePrimitivePairBuffer.buffer, 1, &nodePrimitivePairCopy);
-
-        VkBufferCopy drawCmdBufferCopy{ 0 };
-        drawCmdBufferCopy.dstOffset = 0;
-        drawCmdBufferCopy.srcOffset = vertexBufferSize + indexBufferSize + nodeTransformBufferSize + primitiveBufferSize + nodePrimitivePairBufferSize;
-        drawCmdBufferCopy.size = drawCmdBufferVecBufferSize;
-        vkCmdCopyBuffer(cmd, staging.buffer, modelGeometry.drawCmdBuffer.buffer, 1, &drawCmdBufferCopy);
-	});
-
-	engine->destroy_buffer(staging);
+    std::vector<AllocatedBuffer> res = loader.UploadBuffers();
+    modelGeometry.vertexBuffer = res[0];
+    modelGeometry.indexBuffer = res[1];
+    modelGeometry.nodeTransformBuffer = res[2];
+    modelGeometry.primitiveBuffer = res[3];
+    modelGeometry.nodePrimitivePairBuffer = res[4];
+    modelGeometry.drawCmdBuffer = res[5];
 
 	return modelGeometry;
 }
+
+void Loader::PrintModelData(const LoadedGLTF& modelData){
+    fmt::print("Model Data:\n");
+    // fmt::print("Meshes: {}\n", modelData.meshes.size());
+    // fmt::print("Primitives: {}\n", modelData.primitives.size());
+    // fmt::print("Vertices: {}\n", modelData.vertices.size());
+    // fmt::print("Indices: {}\n", modelData.indices.size());
+    // fmt::print("Nodes: {}\n", modelData.nodes.size());
+    // fmt::print("NodeTransforms: {}\n", modelData.nodeTransforms.size());
+    // fmt::print("NodePrimitivePairs: {}\n", modelData.nodePrimitivePairs.size());
+    // fmt::print("TopNodes: {}\n", modelData.topNodes.size());
+    // fmt::print("DrawCmdBufferVec: {}\n", modelData.drawCmdBufferVec.size());
+    // fmt::print("ModelDataVec: {}\n", modelData.modelDataVec.size());
+
+    // for (size_t i = 0; i < modelData.vertices.size(); ++i)
+    // {
+    //     fmt::print("Vertex: {}\n", i);
+    //     fmt::print("Position: ({}, {}, {})\n", vertices[i].position.x, vertices[i].position.y, vertices[i].position.z);
+    //     fmt::print("Color: ({}, {}, {}, {})\n", vertices[i].color.r, vertices[i].color.g, vertices[i].color.b, vertices[i].color.a);
+    //     fmt::print("UV: ({}, {})\n", vertices[i].uv_x, vertices[i].uv_y);
+    //     fmt::print("Normal: ({}, {}, {})\n", vertices[i].normal.x, vertices[i].normal.y, vertices[i].normal.z);
+    // }
+
+    // for (size_t i = 0; i < modelData.indices.size(); ++i)
+    // {
+    //     fmt::print("{} ", modelData.indices[i]);
+         
+    // }
+    fmt::print("\n\nNodes ------------------------------------\n");
+    for (size_t i = 0; i < modelData.nodeTransforms.size(); ++i)
+    {
+        fmt::print("NodeTransform: {}\n", i);
+        for (size_t j = 0; j < 4; ++j)
+        {
+            fmt::print("({} {} {} {})\n", modelData.nodeTransforms[i][j][0], modelData.nodeTransforms[i][j][1], modelData.nodeTransforms[i][j][2], modelData.nodeTransforms[i][j][3]);
+        }
+    }
+    fmt::print("\n\nPrimitives ------------------------------------\n");
+    for (size_t i = 0; i < modelData.primitives.size(); ++i)
+    {
+        fmt::print("Primitive: {}\n", i);
+        fmt::print("VertexStartIdx: {}\n", modelData.primitives[i].vertexStartIdx);
+        fmt::print("VertexCount: {}\n", modelData.primitives[i].vertexCount);
+        fmt::print("IndexStartIdx: {}\n", modelData.primitives[i].indexStartIdx);
+        fmt::print("IndexCount: {}\n", modelData.primitives[i].indexCount);
+    }
+    fmt::print("\n\nNode Primitive Pairs ------------------------------------\n");
+    for (size_t i = 0; i < modelData.nodePrimitivePairs.size(); ++i)
+    {
+        fmt::print("NodePrimitivePair: {}\n", i);
+        fmt::print("NodeIdx: {}\n", modelData.nodePrimitivePairs[i].nodeIdx);
+        fmt::print("PrimIdx: {}\n", modelData.nodePrimitivePairs[i].primIdx);
+    }
+
+    fmt::print("\n\nDrawCmdBufferVec ------------------------------------\n");
+    for (size_t i = 0; i < modelData.drawCmdBufferVec.size(); ++i)
+    {
+        fmt::print("DrawCmdBuffer: {}\n", i);
+        fmt::print("IndexCount: {}\n", modelData.drawCmdBufferVec[i].indexCount);
+        fmt::print("InstanceCount: {}\n", modelData.drawCmdBufferVec[i].instanceCount);
+        fmt::print("FirstIndex: {}\n", modelData.drawCmdBufferVec[i].firstIndex);
+        fmt::print("VertexOffset: {}\n", modelData.drawCmdBufferVec[i].vertexOffset);
+        fmt::print("FirstInstance: {}\n", modelData.drawCmdBufferVec[i].firstInstance);
+    }
+}
+
 
 void Loader::DestroyModelData(const GPUModelBuffers& modelData, VulkanEngine* engine){
     engine->destroy_buffer(modelData.vertexBuffer);
@@ -393,4 +400,64 @@ void Loader::DestroyModelData(const GPUModelBuffers& modelData, VulkanEngine* en
     engine->destroy_buffer(modelData.primitiveBuffer);
     engine->destroy_buffer(modelData.nodePrimitivePairBuffer);
     engine->destroy_buffer(modelData.drawCmdBuffer);
+}
+
+
+void Loader::Init(VulkanEngine* engine){
+    this->engine = engine;
+    Clear();
+}
+
+void Loader::AddBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, void* data){
+    creationParameters.push_back({allocSize, usage, memoryUsage, data});
+    
+    totalStagingBufferSize += allocSize;
+
+    fmt::print("Alloc Size: {} totalBufferSize: {}\n", allocSize, totalStagingBufferSize);
+}
+
+std::vector<AllocatedBuffer> Loader::UploadBuffers(){
+    std::vector<AllocatedBuffer> buffers(creationParameters.size());
+    
+    for (size_t bufferIdx = 0; bufferIdx < creationParameters.size(); ++bufferIdx){
+        auto& param = creationParameters[bufferIdx];
+        buffers[bufferIdx] = engine->create_buffer(param.allocSize, param.usage, param.memoryUsage);
+    }
+
+    // create staging buffer to copy all the data
+	AllocatedBuffer staging = engine->create_buffer(totalStagingBufferSize,
+                 VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+
+    void* mappedData;
+    vmaMapMemory(engine->_allocator, staging.allocation, &mappedData);
+
+    size_t offset = 0;
+    for (size_t bufferIdx = 0; bufferIdx < creationParameters.size(); ++bufferIdx){
+        auto& param = creationParameters[bufferIdx];
+        memcpy((char*) mappedData + offset, param.data, param.allocSize);
+        offset += param.allocSize;
+    }
+
+	engine->immediate_submit([&](VkCommandBuffer cmd) {
+        size_t offset = 0;
+        for (size_t bufferIdx = 0; bufferIdx < creationParameters.size(); ++bufferIdx){
+            auto& param = creationParameters[bufferIdx];
+            VkBufferCopy copy{ 0 };
+            copy.dstOffset = 0;
+            copy.srcOffset = offset;
+            copy.size = param.allocSize;
+            vkCmdCopyBuffer(cmd, staging.buffer, buffers[bufferIdx].buffer, 1, &copy);
+            offset += param.allocSize;
+        }
+	});
+
+
+    vmaUnmapMemory(engine->_allocator, staging.allocation);
+	engine->destroy_buffer(staging);
+    return buffers;
+}
+
+void Loader::Clear(){
+    creationParameters.clear();
+    totalStagingBufferSize = 0;
 }

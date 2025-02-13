@@ -129,6 +129,14 @@ TODO: Because static geometry doesn't change at all, you could just create 2 hug
 TODO: Because dynamic geometry changes a lot, make sure that matrices that change also change the children as well (CPU work)?
 */
 
+
+struct BufferCreateParameter{
+    size_t allocSize;
+    VkBufferUsageFlags usage;
+    VmaMemoryUsage memoryUsage;
+    void* data;
+};
+
 class Loader {
 public:
     // static std::optional<std::shared_ptr<LoadedGLTF>> LoadGltfModel(const std::string_view filePath);
@@ -148,6 +156,20 @@ public:
     static GPUModelBuffers LoadGeometryFromGLTF(const LoadedGLTF& inModel, VulkanEngine* engine);
     // static std::optional<std::shared_ptr<LoadedGLTF>> LoadGltfMaterial(VulkanEngine* engine,std::string_view filePath);
     // static std::optional<std::shared_ptr<LoadedGLTF>> LoadGltfImage(VulkanEngine* engine,std::string_view filePath);
+    static void PrintModelData(const LoadedGLTF& modelData);
     static void DestroyModelData(const GPUModelBuffers& inModelBuffers, VulkanEngine* engine);
+
+    VulkanEngine* engine;
+
+
+    std::vector<BufferCreateParameter> creationParameters;
+    size_t totalStagingBufferSize;
+
+
+    void AddBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, void* data);
+
+    void Init(VulkanEngine* inEngine);
+    std::vector<AllocatedBuffer> UploadBuffers();
+    void Clear();
 };
 

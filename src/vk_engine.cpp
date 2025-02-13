@@ -179,7 +179,7 @@ void VulkanEngine::draw()
 
 	//submit command buffer to the queue and execute it.
 	// _renderFence will now block until the graphic commands finish execution
-	VK_CHECK(vkQueueSubmit2(_graphicsQueue, 1, &submit, get_current_frame()._renderFence));
+	VK_CHECK(vkQueueSubmit2KHR(_graphicsQueue, 1, &submit, get_current_frame()._renderFence));
 
 	//prepare present
 	// this will put the image we just rendered to into the visible window.
@@ -209,11 +209,11 @@ void VulkanEngine::DrawImgui(VkCommandBuffer cmd, VkImageView targetImageView)
     VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(targetImageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 	VkRenderingInfo renderInfo = vkinit::rendering_info(_swapchainExtent, &colorAttachment, nullptr);
 
-	vkCmdBeginRendering(cmd, &renderInfo);
+	vkCmdBeginRenderingKHR(cmd, &renderInfo);
 
 	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
 
-	vkCmdEndRendering(cmd);
+	vkCmdEndRenderingKHR(cmd);
 }
 
 void VulkanEngine::DrawBackground(VkCommandBuffer cmd)
@@ -238,7 +238,7 @@ void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
 	VkRenderingAttachmentInfo depthAttachment = vkinit::depth_attachment_info(_depthImage.imageView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
 	VkRenderingInfo renderInfo = vkinit::rendering_info(_drawExtent, &colorAttachment, &depthAttachment);
-	vkCmdBeginRendering(cmd, &renderInfo);
+	vkCmdBeginRenderingKHR(cmd, &renderInfo);
 
 	//set dynamic viewport and scissor
 	VkViewport viewport = {};
@@ -268,11 +268,10 @@ void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
     });
 
 	//write the buffer
-	GPUSceneData* sceneUniformData;
-	vmaMapMemory(_allocator, gpuSceneDataBuffer.allocation, (void**) sceneUniformData);
-
-	*sceneUniformData = sceneData;
-
+	void* sceneUniformData;
+	vmaMapMemory(_allocator, gpuSceneDataBuffer.allocation, &sceneUniformData);
+	memcpy(sceneUniformData, &sceneData, sizeof(GPUSceneData));
+	vmaUnmapMemory(_allocator, gpuSceneDataBuffer.allocation);
 	//create a descriptor set that binds that buffer and update it
 	VkDescriptorSet globalDescriptor = get_current_frame()._frameDescriptors.allocate(_device, _gpuSceneDataDescriptorLayout);
 
@@ -292,7 +291,9 @@ void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
 	// }
 	// bind buffers
 	
-	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _meshPipelineLayout, 0, 1, &_geometryPassDescriptors, 0, nullptr);
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _meshPipelineLayout, 0, 1, &_vertexDescriptors, 0, nullptr);
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _meshPipelineLayout, 1, 1, &_geometryPassDescriptors, 0, nullptr);
+	
 
 	// glm::mat4 view = glm::translate(glm::vec3{ 0,0,-5 });
 	// // camera projection
@@ -304,61 +305,84 @@ void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
 
 	GPUDrawPushConstants push_constants;
 	push_constants.worldMatrix = sceneData.viewproj;
-	push_constants.vertexBuffer = modelBuffers.vertexBufferAddress;
-	push_constants.indexBuffer = modelBuffers.indexBufferAddress;
 
 	vkCmdPushConstants(cmd, _meshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &push_constants);
 	
+	vkCmdBindIndexBuffer(cmd, modelBuffers.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+
 	vkCmdDrawIndexedIndirect(cmd, modelBuffers.drawCmdBuffer.buffer, 0, modelData->drawCmdBufferVec.size(), sizeof(VkDrawIndexedIndirectCommand));
 
 
-	vkCmdEndRendering(cmd);
+	vkCmdEndRenderingKHR(cmd);
 }
 
-void VulkanEngine::ProcessInput(SDL_Event* e)
+
+void VulkanEngine::HandleKeyboardInput(const SDL_KeyboardEvent& key)
 {
-	if (SDL_GetRelativeMouseMode() == SDL_TRUE)
+
+	bool cameraUpdated = false;
+
+	switch (key.keysym.sym)
 	{
-		bool cameraUpdated = false;
-		if (e->type == SDL_KEYDOWN) {
-			if (e->key.keysym.sym == SDLK_w) { _camera.velocity.z = 1.0f;	}
-			if (e->key.keysym.sym == SDLK_s) { _camera.velocity.z = -1.0f;	}
-			if (e->key.keysym.sym == SDLK_a) { _camera.velocity.x = -1.0f;	}
-			if (e->key.keysym.sym == SDLK_d) { _camera.velocity.x =  1.0f;	}
-
-			cameraUpdated = true;
+		case SDLK_TAB:
+			if (key.type == SDL_KEYDOWN)
+				SDL_SetRelativeMouseMode(SDL_GetRelativeMouseMode() == SDL_TRUE ? SDL_FALSE : SDL_TRUE);
+			break;
+		case SDLK_ESCAPE:
+			bQuit = true;
+			break;
+		default:
+		if (SDL_GetRelativeMouseMode() == SDL_TRUE)
+		{
+			switch (key.keysym.sym)
+			{
+				case SDLK_w:
+				buttonState[InputAction::FORWARD] = key.type == SDL_KEYDOWN; 
+				break;
+			case SDLK_a:
+				buttonState[InputAction::LEFT] = key.type == SDL_KEYDOWN; 
+				break;
+			case SDLK_s:
+				buttonState[InputAction::BACKWARD] = key.type == SDL_KEYDOWN; 
+				break;
+			case SDLK_d:
+				buttonState[InputAction::RIGHT] = key.type == SDL_KEYDOWN; 
+				break;
+			}	
 		}
-
-		if (e->type == SDL_KEYUP) {
-			if (e->key.keysym.sym == SDLK_w) { _camera.velocity.z = 0; }
-			if (e->key.keysym.sym == SDLK_s) { _camera.velocity.z = 0; }
-			if (e->key.keysym.sym == SDLK_a) { _camera.velocity.x = 0; }
-			if (e->key.keysym.sym == SDLK_d) { _camera.velocity.x = 0; }
-			cameraUpdated = true;
-		}
-
-
-
-		if (e->type == SDL_MOUSEMOTION) {
-			_camera.processMouseMovement(e->motion.xrel, -e->motion.yrel);
-		}
-
-		// if (cameraUpdated) {
-		_camera.updatePosition(_deltaTime);
-		// }
-
 	}
 	
-	if (e->type == SDL_KEYDOWN && e->key.keysym.sym == SDLK_TAB) {
-		SDL_SetRelativeMouseMode(SDL_GetRelativeMouseMode() == SDL_TRUE ? SDL_FALSE : SDL_TRUE);
-	}
+	// fmt::print("Forward: {}, Backward: {}, Left: {}, Right: {}\n", buttonState[InputAction::FORWARD], buttonState[InputAction::BACKWARD], buttonState[InputAction::LEFT], buttonState[InputAction::RIGHT]);
 
+	
+	if (buttonState[InputAction::FORWARD])  { _camera.velocity.z = 1.0f; }
+	else if (buttonState[InputAction::BACKWARD]) { _camera.velocity.z = -1.0f; }
+	else { _camera.velocity.z = 0.0f; }
+
+	if (buttonState[InputAction::LEFT]) { _camera.velocity.x = -1.0f; }
+	else if (buttonState[InputAction::RIGHT]) { _camera.velocity.x = 1.0f; }
+	else { _camera.velocity.x = 0.0f; }
+}
+
+// TODO: Eventually, we should abstract the input controller into a separate class
+void VulkanEngine::ProcessInput(SDL_Event* e)
+{
+	switch (e->type){
+		case SDL_MOUSEMOTION:
+		if (SDL_GetRelativeMouseMode() == SDL_TRUE)
+			_camera.processMouseMovement(e->motion.xrel, -e->motion.yrel);
+			break;
+		case SDL_KEYDOWN:
+		case SDL_KEYUP:
+			HandleKeyboardInput(e->key);
+			break;
+	}
 }
 
 void VulkanEngine::UpdateScene()
 {
     // mainCamera.update();
-
+	_camera.updatePosition(_deltaTime);
     glm::mat4 view = _camera.getViewMatrix();
 
     // camera projection
@@ -376,7 +400,6 @@ void VulkanEngine::UpdateScene()
 void VulkanEngine::run()
 {
     SDL_Event e;
-	bool bQuit = false;
 	
 	//main loop
 	while (!bQuit)
@@ -470,7 +493,7 @@ void VulkanEngine::immediate_submit(std::function<void(VkCommandBuffer cmd)>&& f
 
 	// submit command buffer to the queue and execute it.
 	//  _renderFence will now block until the graphic commands finish execution
-	VK_CHECK(vkQueueSubmit2(_graphicsQueue, 1, &submit, _immFence));
+	VK_CHECK(vkQueueSubmit2KHR(_graphicsQueue, 1, &submit, _immFence));
 
 	VK_CHECK(vkWaitForFences(_device, 1, &_immFence, true, 9999999999));
 }
@@ -505,12 +528,8 @@ GPUMeshBuffers VulkanEngine::uploadMesh(std::span<uint32_t> indices, std::span<V
 	GPUMeshBuffers newSurface;
 
 	//create vertex buffer
-	newSurface.vertexBuffer = create_buffer(vertexBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+	newSurface.vertexBuffer = create_buffer(vertexBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 		VMA_MEMORY_USAGE_GPU_ONLY);
-
-	//find the adress of the vertex buffer
-	VkBufferDeviceAddressInfo deviceAddressInfo{ .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,.buffer = newSurface.vertexBuffer.buffer };
-	newSurface.vertexBufferAddress = vkGetBufferDeviceAddress(_device, &deviceAddressInfo);
 
 	//create index buffer
 	newSurface.indexBuffer = create_buffer(indexBufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,

@@ -185,7 +185,7 @@ struct GenericFeatureChain {
     template <typename T> void add(T const& features) noexcept {
         // If this struct is already in the list, combine it
         for (auto& node : nodes) {
-            if (features.sType == node.sType) {
+            if (static_cast<VkStructureType>(features.sType) == node.sType) {
                 node.combine(features);
                 return;
             }
@@ -194,7 +194,8 @@ struct GenericFeatureChain {
         nodes.push_back(features);
     }
 
-    bool match(GenericFeatureChain const& extension_requested) const noexcept;
+    bool match_all(GenericFeatureChain const& extension_requested) const noexcept;
+    bool find_and_match(GenericFeatureChain const& extension_requested) const noexcept;
 
     void chain_up(VkPhysicalDeviceFeatures2& feats2) noexcept;
 
@@ -332,7 +333,7 @@ void destroy_instance(Instance const& instance); // release instance resources
 
 #if defined(_WIN32)
     VK_KHR_win32_surface
-#elif defined(__linux__)
+#elif defined(__linux__) || defined(__FreeBSD__)
     VK_KHR_xcb_surface
     VK_KHR_xlib_surface
     VK_KHR_wayland_surface
@@ -528,6 +529,11 @@ struct PhysicalDevice {
     // Returns true if an extension should be enabled on the device
     bool is_extension_present(const char* extension) const;
 
+    // Returns true if all the features are present
+    template <typename T> bool are_extension_features_present(T const& features) const {
+        return is_features_node_present(detail::GenericFeaturesPNextNode(features));
+    }
+
     // If the given extension is present, make the extension be enabled on the device.
     // Returns true the extension is present.
     bool enable_extension_if_present(const char* extension);
@@ -537,11 +543,11 @@ struct PhysicalDevice {
     bool enable_extensions_if_present(const std::vector<const char*>& extensions);
 
     // If the features from VkPhysicalDeviceFeatures are all present, make all of the features be enable on the device.
-    // Returns true all of the features are present.
+    // Returns true if all the features are present.
     bool enable_features_if_present(const VkPhysicalDeviceFeatures& features_to_enable);
 
     // If the features from the provided features struct are all present, make all of the features be enable on the
-    // device. Returns true all of the features are present.
+    // device. Returns true if all of the features are present.
     template <typename T> bool enable_extension_features_if_present(T const& features_check) {
         return enable_features_node_if_present(detail::GenericFeaturesPNextNode(features_check));
     }
@@ -564,6 +570,7 @@ struct PhysicalDevice {
     friend class PhysicalDeviceSelector;
     friend class DeviceBuilder;
 
+    bool is_features_node_present(detail::GenericFeaturesPNextNode const& node) const;
     bool enable_features_node_if_present(detail::GenericFeaturesPNextNode const& node);
 };
 
@@ -735,7 +742,7 @@ enum class QueueType { present, graphics, compute, transfer };
 
 namespace detail {
 // Sentinel value, used in implementation only
-inline const uint32_t QUEUE_INDEX_MAX_VALUE = 65536;
+inline const uint32_t QUEUE_INDEX_MAX_VALUE = UINT32_MAX;
 } // namespace detail
 
 // ---- Device ---- //
