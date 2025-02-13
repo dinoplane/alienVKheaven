@@ -75,8 +75,15 @@ void VulkanEngine::InitVulkan()
 	//features12.bufferDeviceAddress = true;
 	features12.descriptorIndexing = true;
 
+
 	VkPhysicalDeviceVulkan11Features features11{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};	
 	features11.shaderDrawParameters = true;
+	
+
+	VkPhysicalDeviceFeatures fineGrainedFeatures{};
+	fineGrainedFeatures.multiDrawIndirect = true;
+	//fineGrainedFeatures.features.drawIndirectFirstInstance = VK_TRUE; 
+	//deviceBuilder.add_pNext(&fineGrainedFeatures);
 
 	std::cout << "Initializing Vulkan 3" << std::endl;
 
@@ -99,6 +106,7 @@ void VulkanEngine::InitVulkan()
 		 .add_required_extension(VK_KHR_COPY_COMMANDS_2_EXTENSION_NAME)
 		.set_required_features_12(features12)
 		.set_required_features_11(features11)
+		.set_required_features(fineGrainedFeatures)
 		.set_surface(_surface)
 		.select();
 
@@ -112,6 +120,9 @@ void VulkanEngine::InitVulkan()
 
 	std::cout << "Initializing Vulkan 4" << std::endl;
 	vkb::DeviceBuilder deviceBuilder{ physicalDevice };
+
+
+
 
 	VkPhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeatures{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES};
 	dynamicRenderingFeatures.dynamicRendering = VK_TRUE;
@@ -647,7 +658,7 @@ void VulkanEngine::InitDefaultData()
 //< init_data
 	// testMeshes = Loader::loadGltfMeshes(this,"..\\assets\\basicmesh.glb").value();
 	std::vector<std::string> modelPaths;
-	modelPaths.push_back("..\\assets\\teapot.gltf");
+	modelPaths.push_back("..\\assets\\fumo\\scene.gltf");
 	modelData = Loader::LoadGltfModel(modelPaths).value();
 	Loader::PrintModelData(*modelData);
 	modelBuffers = Loader::LoadGeometryFromGLTF(*modelData, this);

@@ -25,4 +25,5 @@ void main()
 	float diff = max(dot(norm, lightDir), 0.0);
 
 	outFragColor = diff * vec4(1.0);
+	outFragColor = vec4(inNormal, 1.0);
 }
