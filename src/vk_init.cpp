@@ -169,6 +169,25 @@ void VulkanEngine::InitVulkan()
 std::cout << "Initializing Vulkan 7" << std::endl;
 }
 
+static void InitColorAttachmentImage(
+	VulkanEngine* engine, AllocatedImage* attachmentImage, 
+	VkFormat imageFormat, VkExtent3D imageExtent, VkImageUsageFlags imageUsages,
+	VmaAllocationCreateInfo rimg_allocinfo){
+	attachmentImage->imageFormat = imageFormat;
+	attachmentImage->imageExtent = imageExtent;
+
+	VkImageCreateInfo rimg_info = vkinit::image_create_info(attachmentImage->imageFormat, imageUsages, imageExtent);
+
+
+	//allocate and create the image
+	vmaCreateImage(engine->_allocator, &rimg_info, &rimg_allocinfo, &attachmentImage->image, &attachmentImage->allocation, nullptr);
+
+	//build a image-view for the draw image to use for rendering
+	VkImageViewCreateInfo rview_info = vkinit::imageview_create_info(attachmentImage->imageFormat, attachmentImage->image, VK_IMAGE_ASPECT_COLOR_BIT);
+
+	VK_CHECK(vkCreateImageView(engine->_device, &rview_info, nullptr, &attachmentImage->imageView));
+}
+
 void VulkanEngine::InitSwapchain()
 {
     CreateSwapchain(_windowExtent.width, _windowExtent.height);
@@ -180,30 +199,42 @@ void VulkanEngine::InitSwapchain()
 		1
 	};
 
-	//hardcoding the depth format to 32 bit float
-	_drawImage.imageFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
-	_drawImage.imageExtent = drawImageExtent;
-
-	VkImageUsageFlags drawImageUsages{};
-	drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-	drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
-	drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-
-	VkImageCreateInfo rimg_info = vkinit::image_create_info(_drawImage.imageFormat, drawImageUsages, drawImageExtent);
-
 	//for the draw image, we want to allocate it from gpu local memory
 	VmaAllocationCreateInfo rimg_allocinfo = {};
 	rimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 	rimg_allocinfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-	//allocate and create the image
-	vmaCreateImage(_allocator, &rimg_info, &rimg_allocinfo, &_drawImage.image, &_drawImage.allocation, nullptr);
+	InitColorAttachmentImage(this, &_drawImage, 
+		VK_FORMAT_R16G16B16A16_SFLOAT, 
+		drawImageExtent, 
+		VK_IMAGE_USAGE_TRANSFER_SRC_BIT 
+		| VK_IMAGE_USAGE_STORAGE_BIT 
+		| VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT 
+		| VK_IMAGE_USAGE_TRANSFER_DST_BIT, rimg_allocinfo);
 
-	//build a image-view for the draw image to use for rendering
-	VkImageViewCreateInfo rview_info = vkinit::imageview_create_info(_drawImage.imageFormat, _drawImage.image, VK_IMAGE_ASPECT_COLOR_BIT);
+	InitColorAttachmentImage(this, &_positionImage, 
+		VK_FORMAT_R16G16B16A16_SFLOAT, 
+		drawImageExtent, 
+		VK_IMAGE_USAGE_TRANSFER_SRC_BIT 
+		| VK_IMAGE_USAGE_STORAGE_BIT 
+		| VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT 
+		| VK_IMAGE_USAGE_TRANSFER_DST_BIT, rimg_allocinfo);
 
-	VK_CHECK(vkCreateImageView(_device, &rview_info, nullptr, &_drawImage.imageView));
+	InitColorAttachmentImage(this, &_normalImage, 
+		VK_FORMAT_R16G16B16A16_SFLOAT, 
+		drawImageExtent, 
+		VK_IMAGE_USAGE_TRANSFER_SRC_BIT 
+		| VK_IMAGE_USAGE_STORAGE_BIT 
+		| VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT 
+		| VK_IMAGE_USAGE_TRANSFER_DST_BIT, rimg_allocinfo);
+
+	InitColorAttachmentImage(this, &_albedoImage, 
+		VK_FORMAT_R16G16B16A16_SFLOAT, 
+		drawImageExtent, 
+		VK_IMAGE_USAGE_TRANSFER_SRC_BIT 
+		| VK_IMAGE_USAGE_STORAGE_BIT 
+		| VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT 
+		| VK_IMAGE_USAGE_TRANSFER_DST_BIT, rimg_allocinfo);
 
 //> depthimg
 	_depthImage.imageFormat = VK_FORMAT_D32_SFLOAT;
@@ -225,6 +256,15 @@ void VulkanEngine::InitSwapchain()
 	_mainDeletionQueue.push_function([=]() {
 		vkDestroyImageView(_device, _drawImage.imageView, nullptr);
 		vmaDestroyImage(_allocator, _drawImage.image, _drawImage.allocation);
+
+		vkDestroyImageView(_device, _positionImage.imageView, nullptr);
+		vmaDestroyImage(_allocator, _positionImage.image, _positionImage.allocation);
+
+		vkDestroyImageView(_device, _normalImage.imageView, nullptr);
+		vmaDestroyImage(_allocator, _normalImage.image, _normalImage.allocation);
+
+		vkDestroyImageView(_device, _albedoImage.imageView, nullptr);
+		vmaDestroyImage(_allocator, _albedoImage.image, _albedoImage.allocation);
 
 		vkDestroyImageView(_device, _depthImage.imageView, nullptr);
 		vmaDestroyImage(_allocator, _depthImage.image, _depthImage.allocation);
@@ -535,7 +575,7 @@ void VulkanEngine::InitBackgroundPipelines(){
 void VulkanEngine::InitGraphicsPipelines()
 {
 	VkShaderModule triangleFragShader;
-	if (!vkutil::load_shader_module("../shaders/tex_image.frag.spv", _device, &triangleFragShader)) {
+	if (!vkutil::load_shader_module("../shaders/deferred.frag.spv", _device, &triangleFragShader)) {
 		fmt::print("Error when building the fragment shader \n");
 	}
 	else {
@@ -555,16 +595,17 @@ void VulkanEngine::InitGraphicsPipelines()
 	bufferRange.size = sizeof(GPUDrawPushConstants);
 	bufferRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
-	std::vector<VkDescriptorSetLayout> gltfLayoutVec;
-	gltfLayoutVec.push_back(_vertexDescriptorLayout);
-	gltfLayoutVec.push_back(_geometryPassDescriptorLayout);
+	std::vector<VkDescriptorSetLayout> tmpLayoutVec;
+	tmpLayoutVec.push_back(_vertexDescriptorLayout);
+	tmpLayoutVec.push_back(_geometryPassDescriptorLayout);
+	tmpLayoutVec.push_back(_deferredPassDescriptorLayout);
 
 
 	VkPipelineLayoutCreateInfo pipeline_layout_info = vkinit::pipeline_layout_create_info();
 	pipeline_layout_info.pPushConstantRanges = &bufferRange;
 	pipeline_layout_info.pushConstantRangeCount = 1;
-	pipeline_layout_info.pSetLayouts = gltfLayoutVec.data();
-	pipeline_layout_info.setLayoutCount = gltfLayoutVec.size();
+	pipeline_layout_info.pSetLayouts = tmpLayoutVec.data();
+	pipeline_layout_info.setLayoutCount = tmpLayoutVec.size();
 	VK_CHECK(vkCreatePipelineLayout(_device, &pipeline_layout_info, nullptr, &_geometryPassPipelineLayout));
 
 
@@ -573,25 +614,21 @@ void VulkanEngine::InitGraphicsPipelines()
 
 	//use the triangle layout we created
 	pipelineBuilder._pipelineLayout = _geometryPassPipelineLayout;
-	//connecting the vertex and pixel shaders to the pipeline
 	pipelineBuilder.set_shaders(triangleVertexShader, triangleFragShader);
-	//it will draw triangles
 	pipelineBuilder.set_input_topology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-	//filled triangles
 	pipelineBuilder.set_polygon_mode(VK_POLYGON_MODE_FILL);
-	//no backface culling
 	pipelineBuilder.set_cull_mode(VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
-	//no multisampling
 	pipelineBuilder.set_multisampling_none();
-	//no blending
-	pipelineBuilder.disable_blending();
 	// pipelineBuilder.enable_blending_additive();
 
-	//pipelineBuilder.disable_depthtest();
 	pipelineBuilder.enable_depthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
 
 	//connect the image format we will draw into, from draw image
-	pipelineBuilder.set_color_attachment_format(_drawImage.imageFormat);
+
+	pipelineBuilder.add_color_attachment(_drawImage.imageFormat, PipelineBuilder::disable_blending());
+	// pipelineBuilder.add_color_attachment(_positionImage.imageFormat, PipelineBuilder::disable_blending());
+	pipelineBuilder.add_color_attachment(_normalImage.imageFormat, PipelineBuilder::disable_blending());
+	pipelineBuilder.add_color_attachment(_albedoImage.imageFormat, PipelineBuilder::disable_blending());
 	pipelineBuilder.set_depth_format(_depthImage.imageFormat);
 
 	//finally build the pipeline
@@ -602,7 +639,7 @@ void VulkanEngine::InitGraphicsPipelines()
 	
 	pipelineBuilder.clear();
 
-
+	// TODO Create Pipeline for Lighting Pass
 
 
 	//clean structures

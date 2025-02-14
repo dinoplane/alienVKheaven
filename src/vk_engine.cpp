@@ -207,7 +207,7 @@ void VulkanEngine::draw()
 void VulkanEngine::DrawImgui(VkCommandBuffer cmd, VkImageView targetImageView)
 {
     VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(targetImageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-	VkRenderingInfo renderInfo = vkinit::rendering_info(_swapchainExtent, &colorAttachment, nullptr);
+	VkRenderingInfo renderInfo = vkinit::rendering_info(_swapchainExtent, &colorAttachment, 1,  nullptr);
 
 	vkCmdBeginRenderingKHR(cmd, &renderInfo);
 
@@ -237,7 +237,14 @@ void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
 	VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(_drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 	VkRenderingAttachmentInfo depthAttachment = vkinit::depth_attachment_info(_depthImage.imageView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
-	VkRenderingInfo renderInfo = vkinit::rendering_info(_drawExtent, &colorAttachment, &depthAttachment);
+	// TODO create attachments for position, albedo, and normal (does this need to be done every frame?)
+	VkRenderingAttachmentInfo positionAttachment = vkinit::attachment_info(_positionImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+	VkRenderingAttachmentInfo normalAttachment = vkinit::attachment_info(_normalImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+	VkRenderingAttachmentInfo albedoAttachment = vkinit::attachment_info(_albedoImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+	std::vector<VkRenderingAttachmentInfo> colorAttachmentVec { colorAttachment, normalAttachment, albedoAttachment };
+
+	VkRenderingInfo renderInfo = vkinit::rendering_info(_drawExtent, colorAttachmentVec.data(), colorAttachmentVec.size(), &depthAttachment);
 	vkCmdBeginRenderingKHR(cmd, &renderInfo);
 
 	//set dynamic viewport and scissor

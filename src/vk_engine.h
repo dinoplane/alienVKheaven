@@ -154,6 +154,13 @@ public:
 	//draw resources
 	AllocatedImage _drawImage;
 	AllocatedImage _depthImage;
+
+	// Deferred Pass Resources
+	AllocatedImage _positionImage;
+	AllocatedImage _normalImage;
+	AllocatedImage _albedoImage;
+	// AllocatedImage _materialImage;
+
 	DescriptorAllocator globalDescriptorAllocator;
 
 

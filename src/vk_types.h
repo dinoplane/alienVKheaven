@@ -92,6 +92,7 @@ struct GPUModelBuffers {
 // push constants for our mesh object draws
 struct GPUDrawPushConstants {
     glm::mat4 worldMatrix;
+    // glm::vec3 viewPos;
 };
 
 struct DrawContext;
