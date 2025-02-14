@@ -188,6 +188,7 @@ void VulkanEngine::InitSwapchain()
 	drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
 	drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
 	VkImageCreateInfo rimg_info = vkinit::image_create_info(_drawImage.imageFormat, drawImageUsages, drawImageExtent);
 
@@ -343,14 +344,6 @@ void VulkanEngine::InitDescriptors()
     }
     _drawImageDescriptors = globalDescriptorAllocator.allocate(_device, _drawImageDescriptorLayout);
 
-    {
-        DescriptorLayoutBuilder builder;
-        builder.add_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-        builder.add_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-        _postProcessPassDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_COMPUTE_BIT);
-    }
-    _postProcessPassDescriptors = globalDescriptorAllocator.allocate(_device, _postProcessPassDescriptorLayout);
-
 	{
         DescriptorLayoutBuilder builder;
         builder.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER); // node transform buffer
@@ -368,6 +361,37 @@ void VulkanEngine::InitDescriptors()
         _geometryPassDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_VERTEX_BIT);
     }
 	_geometryPassDescriptors = globalDescriptorAllocator.allocate(_device, _geometryPassDescriptorLayout);
+
+	{
+		DescriptorLayoutBuilder builder;
+		builder.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // geometry buffer
+		builder.add_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // normal buffer
+		builder.add_binding(2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // albedo / specular buffer
+		
+		_deferredPassDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT);
+	}
+	_deferredPassDescriptors = globalDescriptorAllocator.allocate(_device, _deferredPassDescriptorLayout);
+
+    {
+        DescriptorLayoutBuilder builder;
+        builder.add_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        builder.add_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        _postProcessPassDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_COMPUTE_BIT);
+    }
+    _postProcessPassDescriptors = globalDescriptorAllocator.allocate(_device, _postProcessPassDescriptorLayout);
+
+
+	// {
+	// 	DescriptorLayoutBuilder builder;
+	// 	builder.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER); // node transform buffer
+	// 	builder.add_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER); // primitive buffer
+	// 	builder.add_binding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER); // node primitive index buffer
+	// 	builder.add_binding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER); // material buffer
+	// 	builder.add_binding(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER); // texture buffer
+	// 	builder.add_binding(5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // skybox texture
+		
+	// 	_uberShaderPassDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_FRAGMENT_BIT);
+	// }
 
 
 	VkDescriptorImageInfo imgInfo{};
@@ -392,6 +416,7 @@ void VulkanEngine::InitDescriptors()
 		vkDestroyDescriptorSetLayout(_device, _postProcessPassDescriptorLayout, nullptr);
 		vkDestroyDescriptorSetLayout(_device, _geometryPassDescriptorLayout, nullptr);
 		vkDestroyDescriptorSetLayout(_device, _vertexDescriptorLayout, nullptr);
+		vkDestroyDescriptorSetLayout(_device, _deferredPassDescriptorLayout, nullptr);
 	});
 
 
@@ -540,14 +565,14 @@ void VulkanEngine::InitGraphicsPipelines()
 	pipeline_layout_info.pushConstantRangeCount = 1;
 	pipeline_layout_info.pSetLayouts = gltfLayoutVec.data();
 	pipeline_layout_info.setLayoutCount = gltfLayoutVec.size();
-	VK_CHECK(vkCreatePipelineLayout(_device, &pipeline_layout_info, nullptr, &_meshPipelineLayout));
+	VK_CHECK(vkCreatePipelineLayout(_device, &pipeline_layout_info, nullptr, &_geometryPassPipelineLayout));
 
 
 	//exactly same as above but with the depth testing set
 	PipelineBuilder pipelineBuilder;
 
 	//use the triangle layout we created
-	pipelineBuilder._pipelineLayout = _meshPipelineLayout;
+	pipelineBuilder._pipelineLayout = _geometryPassPipelineLayout;
 	//connecting the vertex and pixel shaders to the pipeline
 	pipelineBuilder.set_shaders(triangleVertexShader, triangleFragShader);
 	//it will draw triangles
@@ -570,15 +595,23 @@ void VulkanEngine::InitGraphicsPipelines()
 	pipelineBuilder.set_depth_format(_depthImage.imageFormat);
 
 	//finally build the pipeline
-	_meshPipeline = pipelineBuilder.build_pipeline(_device);
+	_geometryPassPipeline = pipelineBuilder.build_pipeline(_device);
+
+
+	
+	
+	pipelineBuilder.clear();
+
+
+
 
 	//clean structures
 	vkDestroyShaderModule(_device, triangleFragShader, nullptr);
 	vkDestroyShaderModule(_device, triangleVertexShader, nullptr);
 
 	_mainDeletionQueue.push_function([&]() {
-		vkDestroyPipelineLayout(_device, _meshPipelineLayout, nullptr);
-		vkDestroyPipeline(_device, _meshPipeline, nullptr);
+		vkDestroyPipelineLayout(_device, _geometryPassPipelineLayout, nullptr);
+		vkDestroyPipeline(_device, _geometryPassPipeline, nullptr);
     });
 }
 

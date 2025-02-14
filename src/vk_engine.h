@@ -128,8 +128,18 @@ public:
 	std::vector<ComputeEffect> backgroundEffects;
 	int currentBackgroundEffect{ 1 };
 
-	VkPipelineLayout _meshPipelineLayout;
-	VkPipeline _meshPipeline;
+	// Graphics
+	VkPipelineLayout _geometryPassPipelineLayout;
+	VkPipeline _geometryPassPipeline;
+
+	// Compute 
+	VkPipelineLayout _lightingPassPipelineLayout;
+	VkPipeline _lightingPassPipeline;
+
+	// Compute
+	VkPipelineLayout _postProcessPassPipelineLayout;
+	VkPipeline _postProcessPassPipeline;
+
 
 	VkDescriptorSetLayout _gpuSceneDataDescriptorLayout;
 	VkDescriptorSetLayout _singleImageDescriptorLayout;
@@ -154,6 +164,9 @@ public:
 	
 	VkDescriptorSetLayout _geometryPassDescriptorLayout;
 	VkDescriptorSet _geometryPassDescriptors;
+
+	VkDescriptorSetLayout _deferredPassDescriptorLayout;
+	VkDescriptorSet _deferredPassDescriptors;
 
 	VkDescriptorSetLayout _uberShaderPassDescriptorLayout;
 	VkDescriptorSet _uberShaderPassDescriptors;

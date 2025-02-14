@@ -131,14 +131,14 @@ void VulkanEngine::draw()
 	// we will overwrite it all so we dont care about what was the older layout
 	vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
-	// VkClearColorValue clearValue;
-	// float flash = std::abs(std::sin(_frameNumber / 120.f));
-	// clearValue = { { 0.0f, 0.0f, flash, 1.0f } };
+	VkClearColorValue clearValue;
+	float flash = std::abs(std::sin(_frameNumber / 120.f));
+	clearValue = { { 0.0f, 0.0f, flash, 1.0f } };
 
-	// VkImageSubresourceRange clearRange = vkinit::image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);
+	VkImageSubresourceRange clearRange = vkinit::image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);
 
-	DrawBackground(cmd);
-    // vkCmdClearColorImage(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
+	// DrawBackground(cmd);
+    vkCmdClearColorImage(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
 
 	vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 	vkutil::transition_image(cmd, _depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
@@ -279,7 +279,7 @@ void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
 	writer.write_buffer(0, gpuSceneDataBuffer.buffer, sizeof(GPUSceneData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 	writer.update_set(_device, globalDescriptor);
 
-	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _meshPipeline);
+	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _geometryPassPipeline);
 
 	//bind a texture
 	// VkDescriptorSet imageSet = get_current_frame()._frameDescriptors.allocate(_device, _singleImageDescriptorLayout);
@@ -291,8 +291,8 @@ void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
 	// }
 	// bind buffers
 	
-	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _meshPipelineLayout, 0, 1, &_vertexDescriptors, 0, nullptr);
-	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _meshPipelineLayout, 1, 1, &_geometryPassDescriptors, 0, nullptr);
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _geometryPassPipelineLayout, 0, 1, &_vertexDescriptors, 0, nullptr);
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _geometryPassPipelineLayout, 1, 1, &_geometryPassDescriptors, 0, nullptr);
 	
 
 	// glm::mat4 view = glm::translate(glm::vec3{ 0,0,-5 });
@@ -306,7 +306,7 @@ void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
 	GPUDrawPushConstants push_constants;
 	push_constants.worldMatrix = sceneData.viewproj;
 
-	vkCmdPushConstants(cmd, _meshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &push_constants);
+	vkCmdPushConstants(cmd, _geometryPassPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &push_constants);
 	
 	vkCmdBindIndexBuffer(cmd, modelBuffers.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
