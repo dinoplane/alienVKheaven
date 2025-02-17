@@ -216,7 +216,8 @@ void VulkanEngine::InitSwapchain()
 		VK_IMAGE_USAGE_TRANSFER_SRC_BIT 
 		| VK_IMAGE_USAGE_STORAGE_BIT 
 		| VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT 
-		| VK_IMAGE_USAGE_TRANSFER_DST_BIT, rimg_allocinfo);
+		| VK_IMAGE_USAGE_TRANSFER_DST_BIT
+		| VK_IMAGE_USAGE_SAMPLED_BIT, rimg_allocinfo);
 
 	InitColorAttachmentImage(this, &_normalImage, 
 		VK_FORMAT_R16G16B16A16_SFLOAT, 
@@ -224,7 +225,8 @@ void VulkanEngine::InitSwapchain()
 		VK_IMAGE_USAGE_TRANSFER_SRC_BIT 
 		| VK_IMAGE_USAGE_STORAGE_BIT 
 		| VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT 
-		| VK_IMAGE_USAGE_TRANSFER_DST_BIT, rimg_allocinfo);
+		| VK_IMAGE_USAGE_TRANSFER_DST_BIT
+		| VK_IMAGE_USAGE_SAMPLED_BIT, rimg_allocinfo);
 
 	InitColorAttachmentImage(this, &_albedoImage, 
 		VK_FORMAT_R16G16B16A16_SFLOAT, 
@@ -232,7 +234,8 @@ void VulkanEngine::InitSwapchain()
 		VK_IMAGE_USAGE_TRANSFER_SRC_BIT 
 		| VK_IMAGE_USAGE_STORAGE_BIT 
 		| VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT 
-		| VK_IMAGE_USAGE_TRANSFER_DST_BIT, rimg_allocinfo);
+		| VK_IMAGE_USAGE_TRANSFER_DST_BIT
+		| VK_IMAGE_USAGE_SAMPLED_BIT, rimg_allocinfo);
 
 //> depthimg
 	_depthImage.imageFormat = VK_FORMAT_D32_SFLOAT;
@@ -401,15 +404,15 @@ void VulkanEngine::InitDescriptors()
     }
 	_geometryPassDescriptors = globalDescriptorAllocator.allocate(_device, _geometryPassDescriptorLayout);
 
-	// {
-	// 	DescriptorLayoutBuilder builder;
-	// 	builder.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // geometry buffer
-	// 	builder.add_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // normal buffer
-	// 	builder.add_binding(2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // albedo / specular buffer
+	{
+		DescriptorLayoutBuilder builder;
+		builder.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // geometry buffer
+		builder.add_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // normal buffer
+		builder.add_binding(2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // albedo buffer
 		
-	// 	_deferredPassDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT);
-	// }
-	// _deferredPassDescriptors = globalDescriptorAllocator.allocate(_device, _deferredPassDescriptorLayout);
+		_deferredPassDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_COMPUTE_BIT);
+	}
+	_deferredPassDescriptors = globalDescriptorAllocator.allocate(_device, _deferredPassDescriptorLayout);
 
 
 	{
@@ -438,15 +441,6 @@ void VulkanEngine::InitDescriptors()
 		vkCreateDescriptorSetLayout(_device, &layoutInfo, nullptr, &_texturesDescriptorLayout);
 	}
 	_texturesDescriptors = globalDescriptorAllocator.allocate(_device, _texturesDescriptorLayout);
-
-
-	//{
-	//	DescriptorLayoutBuilder builder;
-	//	builder.add_binding(0, VK_DESCRIPTOR_TYPE_);
-	//	
-	//	_deferredPassDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT);
-	//}
-	//_deferredPassDescriptors = globalDescriptorAllocator.allocate(_device, _deferredPassDescriptorLayout);
 
 	//
 
@@ -488,13 +482,38 @@ void VulkanEngine::InitDescriptors()
 
 	vkUpdateDescriptorSets(_device, 1, &drawImageWrite, 0, nullptr);
 
+	{
+		std::vector<VkDescriptorImageInfo> imgInfo;
+		imgInfo.resize(3);
+		imgInfo[0].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+		imgInfo[0].imageView = _positionImage.imageView;
+		imgInfo[1].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+		imgInfo[1].imageView = _normalImage.imageView;
+		imgInfo[2].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+		imgInfo[2].imageView = _albedoImage.imageView;
+
+		
+		VkWriteDescriptorSet drawImageWrite = {};
+		drawImageWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		drawImageWrite.pNext = nullptr;
+		
+		drawImageWrite.dstBinding = 0;
+		drawImageWrite.dstSet = _deferredPassDescriptors;
+		drawImageWrite.descriptorCount = 3;
+		drawImageWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		drawImageWrite.pImageInfo = imgInfo.data();
+
+		vkUpdateDescriptorSets(_device, 1, &drawImageWrite, 0, nullptr);
+	}
+
+
 	_mainDeletionQueue.push_function([&](){
 		globalDescriptorAllocator.destroy_pools(_device);
         vkDestroyDescriptorSetLayout(_device, _drawImageDescriptorLayout, nullptr);
 		vkDestroyDescriptorSetLayout(_device, _postProcessPassDescriptorLayout, nullptr);
 		vkDestroyDescriptorSetLayout(_device, _geometryPassDescriptorLayout, nullptr);
 		vkDestroyDescriptorSetLayout(_device, _vertexDescriptorLayout, nullptr);
-		// vkDestroyDescriptorSetLayout(_device, _deferredPassDescriptorLayout, nullptr);
+		vkDestroyDescriptorSetLayout(_device, _deferredPassDescriptorLayout, nullptr);
 		// vkDestroyDescriptorSetLayout(_device, _uberShaderPassDescriptorLayout, nullptr);
 		vkDestroyDescriptorSetLayout(_device, _texturesDescriptorLayout, nullptr);
 	});
@@ -614,6 +633,7 @@ void VulkanEngine::InitBackgroundPipelines(){
 
 void VulkanEngine::InitGraphicsPipelines()
 {
+	
 	VkShaderModule triangleFragShader;
 	if (!vkutil::load_shader_module("../shaders/deferred.frag.spv", _device, &triangleFragShader)) {
 		fmt::print("Error when building the fragment shader \n");
@@ -666,30 +686,77 @@ void VulkanEngine::InitGraphicsPipelines()
 
 	//connect the image format we will draw into, from draw image
 
-	pipelineBuilder.add_color_attachment(_drawImage.imageFormat,PipelineBuilder::enable_blending_alphablend());
+	// pipelineBuilder.add_color_attachment(_drawImage.imageFormat,PipelineBuilder::enable_blending_alphablend());
 	pipelineBuilder.add_color_attachment(_positionImage.imageFormat, PipelineBuilder::enable_blending_alphablend());
 	pipelineBuilder.add_color_attachment(_normalImage.imageFormat, PipelineBuilder::enable_blending_alphablend());
-	// pipelineBuilder.add_color_attachment(_albedoImage.imageFormat, PipelineBuilder::enable_blending_alphablend());
+	pipelineBuilder.add_color_attachment(_albedoImage.imageFormat, PipelineBuilder::enable_blending_alphablend());
 	pipelineBuilder.set_depth_format(_depthImage.imageFormat);
 
 	//finally build the pipeline
 	_geometryPassPipeline = pipelineBuilder.build_pipeline(_device);
-
-
-	
 	
 	pipelineBuilder.clear();
 
+
+	
+	
+
 	// TODO Create Pipeline for Lighting Pass
+	// TODO Create Pipeline for Post Processing Pass
+	// TODO Abstract compute pipeline creation
+
+	std::vector<VkDescriptorSetLayout> lightingDescriptorLayouts = { _deferredPassDescriptorLayout, _drawImageDescriptorLayout };
+	VkPipelineLayoutCreateInfo computeLayout{};
+	computeLayout.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	computeLayout.pNext = nullptr;
+	computeLayout.pSetLayouts = lightingDescriptorLayouts.data();
+	computeLayout.setLayoutCount = lightingDescriptorLayouts.size();
+
+	// Add light information to the pipeline
+	// a buffer of light data!
+
+	VkPushConstantRange pushConstant{};
+	pushConstant.offset = 0;
+	pushConstant.size = 0;
+	pushConstant.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+	computeLayout.pPushConstantRanges = nullptr;
+	computeLayout.pushConstantRangeCount = 0;
+
+	VK_CHECK(vkCreatePipelineLayout(_device, &computeLayout, nullptr, &_lightingPassPipelineLayout));
+		
+	VkShaderModule lightingShader;
+	if (!vkutil::load_shader_module("../shaders/lighting.comp.spv", _device, &lightingShader)) {
+		std::cout << "Error when building the compute shader" << std::endl;
+	}
+
+	VkPipelineShaderStageCreateInfo stageinfo{};
+	stageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	stageinfo.pNext = nullptr;
+	stageinfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+	stageinfo.module = lightingShader;
+	stageinfo.pName = "main";
+
+	VkComputePipelineCreateInfo computePipelineCreateInfo{};
+	computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+	computePipelineCreateInfo.pNext = nullptr;
+	computePipelineCreateInfo.layout = _lightingPassPipelineLayout;
+	computePipelineCreateInfo.stage = stageinfo;
+
+	VK_CHECK(vkCreateComputePipelines(_device, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &_lightingPassPipeline));
 
 
 	//clean structures
 	vkDestroyShaderModule(_device, triangleFragShader, nullptr);
 	vkDestroyShaderModule(_device, triangleVertexShader, nullptr);
+	vkDestroyShaderModule(_device, lightingShader, nullptr);
 
 	_mainDeletionQueue.push_function([&]() {
 		vkDestroyPipelineLayout(_device, _geometryPassPipelineLayout, nullptr);
 		vkDestroyPipeline(_device, _geometryPassPipeline, nullptr);
+
+		vkDestroyPipelineLayout(_device, _lightingPassPipelineLayout, nullptr);
+		vkDestroyPipeline(_device, _lightingPassPipeline, nullptr);
     });
 }
 
@@ -776,7 +843,7 @@ void VulkanEngine::InitDefaultData()
 // _greyImage = create_image((void*)&grey, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM,
 // 	VK_IMAGE_USAGE_SAMPLED_BIT);
 
-	uint32_t black = glm::packUnorm4x8(glm::vec4(0, 0, 0, 0));
+	uint32_t black = glm::packUnorm4x8(glm::vec4(0, 0, 0, 1));
 	_blackImage = create_image((void*)&black, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM,
 		VK_IMAGE_USAGE_SAMPLED_BIT);
 
@@ -815,8 +882,8 @@ void VulkanEngine::InitDefaultData()
 
 
 	std::vector<std::string> modelPaths;
-	// modelPaths.push_back("..\\assets\\DragonDispersion.glb");
-	modelPaths.push_back("../assets/fumo/scene.gltf");
+	modelPaths.push_back("..\\assets\\DragonDispersion.glb");
+	// modelPaths.push_back("../assets/");
 	modelData = Loader::LoadGltfModel(this, modelPaths).value();
 	// Loader::PrintModelData(*modelData);
 	modelBuffers = Loader::LoadGeometryFromGLTF(*modelData, this);
@@ -854,6 +921,8 @@ void VulkanEngine::InitDefaultData()
 		writer.update_set(_device, _texturesDescriptors);
 
 	}
+
+
 
 	_mainDeletionQueue.push_function([&]() {
 		Loader::DestroyModelData(modelBuffers, this);

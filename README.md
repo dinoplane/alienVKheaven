@@ -10,6 +10,7 @@
 - GPU driven / bindless rendering
 
 # Anticipated Features
+- TODO: Get rid of unused code.
 - Shadows
 - Volumetric Lighting
 - PBR

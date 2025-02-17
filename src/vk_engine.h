@@ -286,6 +286,8 @@ public:
 
 	void DrawBackground(VkCommandBuffer cmd);
 	void DrawGeometry(VkCommandBuffer cmd);
+	void DrawLightingPass(VkCommandBuffer cmd);
+	
 	void DrawImgui(VkCommandBuffer cmd, VkImageView targetImageView);
 
 	bool bQuit {false};

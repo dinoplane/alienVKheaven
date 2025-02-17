@@ -32,8 +32,6 @@ layout (set = 1, binding = 3) readonly buffer MaterialBuffer{
 layout(set = 2, binding = 0) uniform sampler2D textures[];
 
 
-vec3 lightPos = vec3(10.0, 10.0, 10.0); 
-
 float rand(vec2 co){
     return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
 }
