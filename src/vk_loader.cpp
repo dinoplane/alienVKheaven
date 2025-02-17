@@ -1,6 +1,8 @@
-﻿#include "stb_image.h"
+﻿#include <vk_loader.h>
 #include <iostream>
-#include <vk_loader.h>
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 #include "vk_engine.h"
 #include "vk_initializers.h"
@@ -14,7 +16,7 @@
 #include "vk_mem_alloc.h"
 
 
-std::optional<std::shared_ptr<LoadedGLTF>> Loader::LoadGltfModel(const std::span<std::string> filePaths){
+std::optional<std::shared_ptr<LoadedGLTF>> Loader::LoadGltfModel(VulkanEngine* engine, const std::span<std::string> filePaths){
     std::shared_ptr<LoadedGLTF> scene = std::make_shared<LoadedGLTF>();
     LoadedGLTF& loadedModel = *scene.get();
     fastgltf::Parser parser = fastgltf::Parser(
@@ -23,6 +25,16 @@ std::optional<std::shared_ptr<LoadedGLTF>> Loader::LoadGltfModel(const std::span
         | fastgltf::Extensions::KHR_materials_ior 
         | fastgltf::Extensions::KHR_materials_volume
         | fastgltf::Extensions::KHR_materials_dispersion);
+
+    // Create a default material
+    loadedModel.materials.push_back(LoadedMaterial{});
+    auto& defaultMaterial = loadedModel.materials[0];
+    defaultMaterial.baseColorFactor = glm::vec4(1.0f);
+    defaultMaterial.alphaCutoff = 0.0f;
+    defaultMaterial.flags = 0;
+
+    loadedModel.images.push_back(engine->_errorCheckerboardImage);
+
     for (auto& filePath : filePaths){
      
         fmt::print("Loading GLTF: {}\n", filePath);
@@ -52,19 +64,46 @@ std::optional<std::shared_ptr<LoadedGLTF>> Loader::LoadGltfModel(const std::span
         size_t initPrimitiveSize = loadedModel.primitives.size();
         size_t initVerticesSize = loadedModel.vertices.size();
         size_t initIndicesSize = loadedModel.indices.size();
+        size_t initNodesSize = loadedModel.nodes.size();
+        size_t initImagesSize = loadedModel.images.size();
+        size_t initMaterialsSize = loadedModel.materials.size();
+        size_t initTopNodesSize = loadedModel.topNodes.size();
 
-        loadedModel.meshes.resize(loadedModel.meshes.size() + gltfAsset.meshes.size());
+        // Load Images
+        loadedModel.images.resize(initImagesSize + gltfAsset.images.size());
+        for ( size_t imageIdx = 0; imageIdx < gltfAsset.images.size(); ++imageIdx ){
+            const fastgltf::Image& gltfImage = gltfAsset.images[imageIdx];
+            AllocatedImage& loadedImage = loadedModel.images[initImagesSize + imageIdx];
+            if (!Loader::LoadGltfImage(engine, filePath, gltfAsset, gltfImage, &loadedModel, &loadedImage)){
+                assert(false);
+            }
+        }
+
+        // Load Materials
+    	loadedModel.materials.resize(initMaterialsSize + gltfAsset.materials.size());
+
+    
+        for ( size_t materialIdx = 0; materialIdx < gltfAsset.materials.size(); ++materialIdx ){
+            const fastgltf::Material& gltfMaterial = gltfAsset.materials[materialIdx];
+            LoadedMaterial& loadedMaterial = loadedModel.materials[initMaterialsSize + materialIdx];
+            if (!Loader::LoadGltfMaterial(gltfAsset, gltfMaterial, &loadedMaterial)){
+                assert(false);
+            }
+            fmt::print("Material: {}\n", initMaterialsSize + materialIdx);
+            fmt::print("Alpha Cutoff: {}\n", loadedMaterial.alphaCutoff);
+        }
+
+        loadedModel.meshes.resize(initMeshesSize + gltfAsset.meshes.size());
         for ( size_t meshIdx = 0; meshIdx < gltfAsset.meshes.size(); ++meshIdx ){
             const fastgltf::Mesh& gltfMesh = gltfAsset.meshes[meshIdx];
             LoadedMesh& loadedMesh = loadedModel.meshes[meshIdx];
             
-            if (!Loader::LoadGltfMesh(gltfAsset, gltfMesh, &loadedModel, &loadedMesh, &loadedModel.vertices, &loadedModel.indices, &loadedModel.primitives)){
+            if (!Loader::LoadGltfMesh(gltfAsset, gltfMesh, &loadedModel, &loadedMesh, &loadedModel.vertices, &loadedModel.indices, &loadedModel.primitives, &loadedModel.primitivePropertiesBufferVec)){
                 assert(false);
             }
         }
 
         // Create scene graph by iterating through the nodes.
-        size_t initNodesSize = loadedModel.nodes.size();
         // loadedModel.nodes.resize(initNodesSize + gltfAsset.nodes.size());
         fastgltf::iterateSceneNodes(gltfAsset, 0u, fastgltf::math::fmat4x4(),
                                     [&](const fastgltf::Node& node, fastgltf::math::fmat4x4 matrix) {
@@ -89,7 +128,6 @@ std::optional<std::shared_ptr<LoadedGLTF>> Loader::LoadGltfModel(const std::span
             }
         }
 
-        size_t initTopNodesSize = loadedModel.topNodes.size();
         for (size_t nodeIdx = initNodesSize; nodeIdx < loadedModel.nodes.size(); ++nodeIdx) {
             Node& node = loadedModel.nodes[nodeIdx];
             if (node.parentIdx == UINT32_MAX) {
@@ -125,6 +163,8 @@ std::optional<std::shared_ptr<LoadedGLTF>> Loader::LoadGltfModel(const std::span
         } 
 
         loadedModel.modelDataVec.push_back( ModelData{
+            static_cast<uint32_t>(initImagesSize), static_cast<uint32_t>(loadedModel.images.size() - initImagesSize),
+            static_cast<uint32_t>(initMaterialsSize), static_cast<uint32_t>(loadedModel.materials.size() - initMaterialsSize),
             static_cast<uint32_t>(initMeshesSize), static_cast<uint32_t>(gltfAsset.meshes.size()),
             static_cast<uint32_t>(initNodesSize), static_cast<uint32_t>(gltfAsset.nodes.size()),
             static_cast<uint32_t>(initPrimitiveSize), static_cast<uint32_t>(loadedModel.primitives.size() - initPrimitiveSize),
@@ -146,17 +186,42 @@ std::optional<std::shared_ptr<LoadedGLTF>> Loader::LoadGltfModel(const std::span
 bool Loader::LoadGltfMesh(const fastgltf::Asset& gltfAsset, const fastgltf::Mesh& gltfMesh,
                         LoadedGLTF* outModel, LoadedMesh* outMesh, 
                         std::vector<Vertex>* vertices, std::vector<uint32_t>* indices,
-                        std::vector<LoadedPrimitive>* primitives){
+                        std::vector<LoadedPrimitive>* primitives, std::vector<PrimitiveProperties>* primitiveProperties){
     
     size_t initPrimitivesSize = primitives->size();
 	outMesh->primitiveStartIdx = initPrimitivesSize;
 	outMesh->primitiveCount = static_cast<uint32_t>(gltfMesh.primitives.size());
     primitives->resize(initPrimitivesSize + gltfMesh.primitives.size());
+    primitiveProperties->resize(initPrimitivesSize + gltfMesh.primitives.size());
 
     for (size_t primIdx = 0; primIdx < gltfMesh.primitives.size(); ++primIdx) {
         const auto* it = &gltfMesh.primitives[primIdx];
 		LoadedPrimitive& outPrimitive = (*primitives)[initPrimitivesSize + primIdx];
-        
+        PrimitiveProperties& outPrimitiveProperties = (*primitiveProperties)[initPrimitivesSize + primIdx];
+
+        if (it->materialIndex.has_value()) {
+			outPrimitiveProperties.materialIdx = it->materialIndex.value() + 1;
+
+            auto& material = gltfAsset.materials[it->materialIndex.value()];
+
+			auto& baseColorTexture = material.pbrData.baseColorTexture;
+            if (baseColorTexture.has_value()) {
+                auto& texture = gltfAsset.textures[baseColorTexture->textureIndex];
+				if (!texture.imageIndex.has_value())
+					return false;
+
+				outPrimitiveProperties.textureIdx = texture.imageIndex.value() + 1;
+				// if (baseColorTexture->transform && baseColorTexture->transform->texCoordIndex.has_value()) {
+				// 	baseColorTexcoordIndex = baseColorTexture->transform->texCoordIndex.value();
+				// } else {
+				// 	baseColorTexcoordIndex = material.pbrData.baseColorTexture->texCoordIndex;
+				// } // Investigate what this is for
+            }
+        } else {
+			outPrimitiveProperties.materialIdx = 0;
+            // maybe a default texture?
+		}
+
         auto* positionIt = it->findAttribute("POSITION");
         assert(positionIt != it->attributes.end()); // A mesh primitive is required to hold the POSITION attribute.
         assert(it->indicesAccessor.has_value()); // We specify GenerateMeshIndices, so we should always have indices
@@ -260,6 +325,107 @@ bool Loader::LoadGltfMesh(const fastgltf::Asset& gltfAsset, const fastgltf::Mesh
     return true;
 }
 
+//TODO:  kinda dont like doing this but it is what it is. Find a solution to make this loader more independent later.
+bool Loader::LoadGltfImage(VulkanEngine* engine,const std::string rootFilePath,  const fastgltf::Asset& gltfAsset,  const fastgltf::Image& image, LoadedGLTF* outModel, AllocatedImage* outImage) {
+    auto getLevelCount = [](int width, int height) -> uint32_t {
+        return static_cast<uint32_t>(1 + floor(log2(width > height ? width : height)));
+    };
+
+    std::visit(fastgltf::visitor {
+        [](auto& arg) {
+			fmt::print("Loaded Image: {}\n", "Nothing");
+		},
+        [&](const fastgltf::sources::URI& filePath) {
+            assert(filePath.fileByteOffset == 0); // We don't support offsets with stbi.
+            assert(filePath.uri.isLocalPath()); // We're only capable of loading local files.
+            int width, height, nrChannels;
+
+            const std::string uriPath(filePath.uri.path().begin(), filePath.uri.path().end()); // Thanks C++.
+
+            
+
+            const std::string path = rootFilePath.substr(0, rootFilePath.find_last_of("/\\") + 1) + uriPath;
+            unsigned char *data = stbi_load(path.c_str(), &width, &height, &nrChannels, 4); // The file path is wrong.. fix it
+
+			// glTextureParameteri(texture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
+			// glTextureParameteri(texture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
+			// glTextureParameteri(texture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+			// glTextureParameteri(texture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+			// glTextureStorage2D(texture, getLevelCount(width, height), GL_RGBA8, width, height);
+            // glTextureSubImage2D(texture, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
+            VkExtent3D extent = {width, height, 1};
+            *outImage = engine->create_image(
+                    data,
+                    extent,
+                    VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false
+                );
+
+            stbi_image_free(data);
+			fmt::print("Loaded Image: {}\n", path);
+        },
+        [&](const fastgltf::sources::Array& vector) {
+            int width, height, nrChannels;
+            unsigned char *data = stbi_load_from_memory(reinterpret_cast<const stbi_uc*>(vector.bytes.data()), static_cast<int>(vector.bytes.size()), &width, &height, &nrChannels, 4);
+	
+            VkExtent3D extent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1};
+            *outImage = engine->create_image(
+                    data,
+                    extent,
+                    VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false
+            );
+            stbi_image_free(data);
+			fmt::print("Loaded Image: {}\n", "From Memory");
+
+        },
+        [&](const fastgltf::sources::BufferView& view) {
+            auto& bufferView = gltfAsset.bufferViews[view.bufferViewIndex];
+            auto& buffer = gltfAsset.buffers[bufferView.bufferIndex];
+            std::visit(fastgltf::visitor {
+                [](auto& arg) {},
+                [&](const fastgltf::sources::Array& vector) {
+                    int width, height, nrChannels;
+					unsigned char* data = stbi_load_from_memory(reinterpret_cast<const stbi_uc*>(vector.bytes.data() + bufferView.byteOffset),
+					static_cast<int>(bufferView.byteLength), &width, &height, &nrChannels, 4);
+
+                    VkExtent3D extent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1};
+                    *outImage = engine->create_image(
+                            data,
+                            extent,
+                            VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false
+                        );
+                    stbi_image_free(data);
+                }
+            }, buffer.data);
+			fmt::print("Loaded Image: {}\n", "From BufferView");
+
+        },
+    }, image.data);
+
+    engine->_mainDeletionQueue.push_function([=]() {
+        engine->destroy_image(*outImage);
+    });
+    return true;
+
+}
+
+
+bool Loader::LoadGltfMaterial(const fastgltf::Asset& gltfAsset, const fastgltf::Material& material, LoadedMaterial* outMaterial) {
+    outMaterial->alphaCutoff = material.alphaCutoff;
+
+    outMaterial->baseColorFactor.x = material.pbrData.baseColorFactor.x();
+	outMaterial->baseColorFactor.y = material.pbrData.baseColorFactor.y();
+	outMaterial->baseColorFactor.z = material.pbrData.baseColorFactor.z();
+	outMaterial->baseColorFactor.w = material.pbrData.baseColorFactor.w();
+	outMaterial->flags = 0;
+    if (material.pbrData.baseColorTexture.has_value()) {
+        outMaterial->flags |= MaterialUniformFlags::HasBaseColorTexture;
+    }
+	fmt::print("Has Base Color Texture: {}\n", outMaterial->flags & MaterialUniformFlags::HasBaseColorTexture);
+    return true;
+}
+
+
 void LoadedGLTF::clearAll(){
     meshes.clear();
     primitives.clear();
@@ -271,6 +437,9 @@ void LoadedGLTF::clearAll(){
     topNodes.clear();
     drawCmdBufferVec.clear();
     modelDataVec.clear();
+    images.clear();
+    materials.clear();
+    primitivePropertiesBufferVec.clear();
 }
 
 GPUModelBuffers Loader::LoadGeometryFromGLTF(const LoadedGLTF& inModel, VulkanEngine* engine){
@@ -282,18 +451,19 @@ GPUModelBuffers Loader::LoadGeometryFromGLTF(const LoadedGLTF& inModel, VulkanEn
     const size_t vertexBufferSize = inModel.vertices.size() * sizeof(Vertex);
 	const size_t indexBufferSize = inModel.indices.size() * sizeof(uint32_t);
     const size_t nodeTransformBufferSize = inModel.nodeTransforms.size() * sizeof(glm::mat4);
-    const size_t primitiveBufferSize = inModel.primitives.size() * sizeof(LoadedPrimitive);
+    const size_t primitiveBufferSize = inModel.primitivePropertiesBufferVec.size() * sizeof(PrimitiveProperties);
     const size_t nodePrimitivePairBufferSize = inModel.nodePrimitivePairs.size() * sizeof(NodePrimitivePair);
+    const size_t materialBufferSize = inModel.materials.size() * sizeof(LoadedMaterial);
     const size_t drawCmdBufferVecBufferSize = inModel.drawCmdBufferVec.size() * sizeof(VkDrawIndexedIndirectCommand);
 
     // create buffer on GPU to hold data
 	GPUModelBuffers modelGeometry;
-    PrintModelData(inModel);
-	//create vertex buffer
+    // PrintModelData(inModel);
+
+    //create vertex buffer
     loader.AddBuffer(vertexBufferSize, 
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 		VMA_MEMORY_USAGE_GPU_ONLY, (void*) inModel.vertices.data());
-
 
 	//create index buffer
 	loader.AddBuffer(indexBufferSize,
@@ -308,12 +478,17 @@ GPUModelBuffers Loader::LoadGeometryFromGLTF(const LoadedGLTF& inModel, VulkanEn
     // create primitive buffer
     loader.AddBuffer(primitiveBufferSize,
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, 
-        VMA_MEMORY_USAGE_GPU_ONLY, (void*) inModel.primitives.data());
+        VMA_MEMORY_USAGE_GPU_ONLY, (void*) inModel.primitivePropertiesBufferVec.data());
 
     // create node primitive pair buffer
     loader.AddBuffer(nodePrimitivePairBufferSize,
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         VMA_MEMORY_USAGE_GPU_ONLY, (void*) inModel.nodePrimitivePairs.data());
+
+    // create material buffer
+    loader.AddBuffer(materialBufferSize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VMA_MEMORY_USAGE_GPU_ONLY, (void*) inModel.materials.data());
 
     // create draw command buffer
     loader.AddBuffer(drawCmdBufferVecBufferSize,
@@ -327,7 +502,8 @@ GPUModelBuffers Loader::LoadGeometryFromGLTF(const LoadedGLTF& inModel, VulkanEn
     modelGeometry.nodeTransformBuffer = res[2];
     modelGeometry.primitiveBuffer = res[3];
     modelGeometry.nodePrimitivePairBuffer = res[4];
-    modelGeometry.drawCmdBuffer = res[5];
+    modelGeometry.materialBuffer = res[5];
+    modelGeometry.drawCmdBuffer = res[6];
 
 	return modelGeometry;
 }
@@ -404,6 +580,7 @@ void Loader::DestroyModelData(const GPUModelBuffers& modelData, VulkanEngine* en
     engine->destroy_buffer(modelData.nodeTransformBuffer);
     engine->destroy_buffer(modelData.primitiveBuffer);
     engine->destroy_buffer(modelData.nodePrimitivePairBuffer);
+    engine->destroy_buffer(modelData.materialBuffer);
     engine->destroy_buffer(modelData.drawCmdBuffer);
 }
 
@@ -418,7 +595,7 @@ void Loader::AddBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsag
     
     totalStagingBufferSize += allocSize;
 
-    fmt::print("Alloc Size: {} totalBufferSize: {}\n", allocSize, totalStagingBufferSize);
+    // fmt::print("Alloc Size: {} totalBufferSize: {}\n", allocSize, totalStagingBufferSize);
 }
 
 std::vector<AllocatedBuffer> Loader::UploadBuffers(){

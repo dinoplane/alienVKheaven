@@ -6,6 +6,9 @@ layout (location = 0) out vec3 outColor;
 layout (location = 1) out vec2 outUV;
 layout (location = 2) out vec3 outPosition;
 layout (location = 3) out vec3 outNormal;
+layout (location = 4) out flat uint outTextureIndex;
+layout (location = 5) out flat uint outMaterialIndex;
+
 
 struct Vertex {
 
@@ -17,17 +20,15 @@ struct Vertex {
 }; 
 
 struct Primitive {
-    int vertexStartIdx;
-    uint vertexCount;
-    
-    uint indexStartIdx;
-    uint indexCount;
+    uint materialIdx;
+    uint textureIdx;
 };
 
 struct NodePrimitvePair {
     uint nodeIdx;
     uint primitiveIdx;
 };
+
 
 
 layout(set = 0, binding = 0) readonly buffer VertexBuffer{ 
@@ -47,6 +48,7 @@ layout (set = 1, binding = 2) readonly buffer NodePrimitiveBuffer{
     NodePrimitvePair nodePrimitives[];
 } nodePrimitiveData;
 
+
 //push constants block
 layout( push_constant ) uniform constants
 {	
@@ -57,8 +59,8 @@ layout( push_constant ) uniform constants
 
 void main() 
 {	
-    // uint primitiveIdx = nodePrimitiveData.nodePrimitives[gl_DrawID].primitiveIdx;
-    // Primitive primitive = primitiveData.primitives[primitiveIdx];
+    uint primitiveIdx = nodePrimitiveData.nodePrimitives[gl_DrawID].primitiveIdx;
+    Primitive primitive = primitiveData.primitives[primitiveIdx];
     // uint indiceIdx = primitive.indexStartIdx + gl_VertexIndex;
     // uint vertexIdx = PushConstants.indexBuffer.indices[indiceIdx];
     //load vertex data from device address
@@ -76,5 +78,8 @@ void main()
 	outUV.y = v.uv_y;
 	outPosition = v.position;
 	outNormal = v.normal;
+
+    outTextureIndex = primitive.textureIdx;
+    outMaterialIndex = primitive.materialIdx;
 }
 //< all

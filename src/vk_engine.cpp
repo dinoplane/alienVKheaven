@@ -242,7 +242,7 @@ void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
 	VkRenderingAttachmentInfo normalAttachment = vkinit::attachment_info(_normalImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 	VkRenderingAttachmentInfo albedoAttachment = vkinit::attachment_info(_albedoImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
-	std::vector<VkRenderingAttachmentInfo> colorAttachmentVec { colorAttachment, normalAttachment, albedoAttachment };
+	std::vector<VkRenderingAttachmentInfo> colorAttachmentVec { positionAttachment, normalAttachment, colorAttachment };
 
 	VkRenderingInfo renderInfo = vkinit::rendering_info(_drawExtent, colorAttachmentVec.data(), colorAttachmentVec.size(), &depthAttachment);
 	vkCmdBeginRenderingKHR(cmd, &renderInfo);
@@ -300,6 +300,8 @@ void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
 	
 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _geometryPassPipelineLayout, 0, 1, &_vertexDescriptors, 0, nullptr);
 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _geometryPassPipelineLayout, 1, 1, &_geometryPassDescriptors, 0, nullptr);
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _geometryPassPipelineLayout, 2, 1, &_texturesDescriptors, 0, nullptr);
+	
 	
 
 	// glm::mat4 view = glm::translate(glm::vec3{ 0,0,-5 });
@@ -355,6 +357,12 @@ void VulkanEngine::HandleKeyboardInput(const SDL_KeyboardEvent& key)
 			case SDLK_d:
 				buttonState[InputAction::RIGHT] = key.type == SDL_KEYDOWN; 
 				break;
+			case SDLK_SPACE:
+				buttonState[InputAction::UP] = key.type == SDL_KEYDOWN; 
+				break;
+			case SDLK_LSHIFT:
+				buttonState[InputAction::DOWN] = key.type == SDL_KEYDOWN; 
+				break;
 			}	
 		}
 	}
@@ -369,6 +377,10 @@ void VulkanEngine::HandleKeyboardInput(const SDL_KeyboardEvent& key)
 	if (buttonState[InputAction::LEFT]) { _camera.velocity.x = -1.0f; }
 	else if (buttonState[InputAction::RIGHT]) { _camera.velocity.x = 1.0f; }
 	else { _camera.velocity.x = 0.0f; }
+
+	if (buttonState[InputAction::UP]) { _camera.velocity.y = 1.0f; }
+	else if (buttonState[InputAction::DOWN]) { _camera.velocity.y = -1.0f; }
+	else { _camera.velocity.y = 0.0f; }
 }
 
 // TODO: Eventually, we should abstract the input controller into a separate class

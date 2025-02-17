@@ -46,7 +46,7 @@ void Camera::processMouseMovement(float xoffset, float yoffset){
     updateCameraVectors();
 }
 void Camera::updatePosition(float deltaTime){
-    position += (velocity.z*front + velocity.x*right) * deltaTime * speed;
+    position += (velocity.z*front + velocity.x*right + velocity.y*glm::vec3(0.0f, 1.0f, 0.0f)) * deltaTime * speed;
 }
 
 void Camera::updateCameraVectors(){

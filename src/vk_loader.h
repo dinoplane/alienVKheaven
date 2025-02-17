@@ -43,6 +43,10 @@ struct LoadedPrimitive {
     uint32_t indexCount;
 };
 
+struct PrimitiveProperties {
+    uint32_t materialIdx;
+    uint32_t textureIdx;
+};
 
 struct LoadedMesh
 {    
@@ -59,6 +63,12 @@ struct NodePrimitivePair {
 };
 
 struct ModelData {
+    uint32_t imageStartIdx;
+    uint32_t imageCount;
+
+    uint32_t materialStartIdx;
+    uint32_t materialCount;
+
     uint32_t meshStartIdx;
     uint32_t meshCount;
 
@@ -78,6 +88,17 @@ struct ModelData {
     uint32_t drawCmdBufferCount;
 };
 
+enum MaterialUniformFlags : std::uint32_t {
+    None = 0 << 0,
+    HasBaseColorTexture = 1 << 0,
+};
+
+struct LoadedMaterial {
+    glm::vec4 baseColorFactor;
+    float alphaCutoff;
+    uint32_t flags;
+};
+
 struct LoadedGLTF { // holds all the data for a group of gltf files
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
@@ -86,11 +107,12 @@ struct LoadedGLTF { // holds all the data for a group of gltf files
     // storage for all the data on a given glTF file
     std::vector<LoadedMesh> meshes;
     std::vector<LoadedPrimitive> primitives;
+    std::vector<PrimitiveProperties> primitivePropertiesBufferVec;
     std::vector<Node> nodes;
     std::vector<NodePrimitivePair> nodePrimitivePairs;
     std::vector<glm::mat4> nodeTransforms;
-    // std::vector<AllocatedImage> images;
-    // std::vector<GLTFMaterial> materials;
+    std::vector<AllocatedImage> images;
+    std::vector<LoadedMaterial> materials;
 
     // nodes that dont have a parent, for iterating through the file in tree order
     std::vector<uint32_t> topNodes;
@@ -99,17 +121,8 @@ struct LoadedGLTF { // holds all the data for a group of gltf files
     uint32_t drawCount;
 
     std::vector<ModelData> modelDataVec;
-    // std::vector<VkSampler> samplers;
-
-    // DescriptorAllocator descriptorPool;
-
-    // AllocatedBuffer materialDataBuffer;
-
-    // VulkanEngine* creator;
 
     ~LoadedGLTF() { clearAll(); };
-
-    // virtual void Draw(const glm::mat4& topMatrix, DrawContext& ctx);
 
     void refreshTransform(const glm::mat4& parentMatrix, uint32_t nodeIdx) 
     {
@@ -141,21 +154,23 @@ class Loader {
 public:
     // static std::optional<std::shared_ptr<LoadedGLTF>> LoadGltfModel(const std::string_view filePath);
 
-    static std::optional<std::shared_ptr<LoadedGLTF>> LoadGltfModel( const std::span<std::string> filePaths);
+    static std::optional<std::shared_ptr<LoadedGLTF>> LoadGltfModel(VulkanEngine* engine, const std::span<std::string> filePaths);
 
 
     static bool LoadGltfMesh(const fastgltf::Asset& gltfAsset, const fastgltf::Mesh& gltfMesh,
                                 LoadedGLTF* outModel, LoadedMesh* outMesh, 
                                 std::vector<Vertex>* vertices, std::vector<uint32_t>* indices,
-                                std::vector<LoadedPrimitive>* primitives);
+                                std::vector<LoadedPrimitive>* primitives, std::vector<PrimitiveProperties>* primitiveProperties);
+
+    static bool LoadGltfImage(VulkanEngine* engine, const std::string filePath,  const fastgltf::Asset& gltfAsset, const fastgltf::Image& image, LoadedGLTF* outModel, AllocatedImage* outImage);
+    static bool LoadGltfMaterial(const fastgltf::Asset& gltfAsset, const fastgltf::Material& material, LoadedMaterial* outMaterial);
 
 
-    static bool LoadGltfNode(const fastgltf::Asset& gltf, const fastgltf::Node& gltfNode, 
-                                LoadedGLTF* outModel, Node* outNode);
+    // static bool LoadGltfNode(const fastgltf::Asset& gltf, const fastgltf::Node& gltfNode, 
+    //                             LoadedGLTF* outModel, Node* outNode);
 
     static GPUModelBuffers LoadGeometryFromGLTF(const LoadedGLTF& inModel, VulkanEngine* engine);
-    // static std::optional<std::shared_ptr<LoadedGLTF>> LoadGltfMaterial(VulkanEngine* engine,std::string_view filePath);
-    // static std::optional<std::shared_ptr<LoadedGLTF>> LoadGltfImage(VulkanEngine* engine,std::string_view filePath);
+
     static void PrintModelData(const LoadedGLTF& modelData);
     static void DestroyModelData(const GPUModelBuffers& inModelBuffers, VulkanEngine* engine);
 

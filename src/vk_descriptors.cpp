@@ -186,6 +186,31 @@ void DescriptorWriter::write_image(int binding,VkImageView image, VkSampler samp
 	writes.push_back(write);
 }
 
+void DescriptorWriter::write_texture(int binding,VkImageView image, VkSampler sampler,  VkImageLayout layout, VkDescriptorType type)
+{
+    VkDescriptorImageInfo& info = imageInfos.emplace_back(VkDescriptorImageInfo{
+		.sampler = sampler,
+		.imageView = image,
+		.imageLayout = layout
+	});
+}
+
+void DescriptorWriter::write_texture_write(int binding, VkDescriptorType type) {
+
+    VkWriteDescriptorSet write = { .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+
+    write.dstBinding = binding;
+    write.dstArrayElement = 0;
+    write.descriptorType = type;
+    write.descriptorCount = imageInfos.size();
+    write.pBufferInfo = nullptr;
+    write.dstSet = VK_NULL_HANDLE; //left empty for now until we need to write it
+    write.pImageInfo = imageInfos.data();
+
+    writes.push_back(write);
+}
+
+
 void DescriptorWriter::clear()
 {
     imageInfos.clear();

@@ -175,6 +175,9 @@ public:
 	VkDescriptorSetLayout _deferredPassDescriptorLayout;
 	VkDescriptorSet _deferredPassDescriptors;
 
+	VkDescriptorSetLayout _texturesDescriptorLayout;
+	VkDescriptorSet _texturesDescriptors;
+
 	VkDescriptorSetLayout _uberShaderPassDescriptorLayout;
 	VkDescriptorSet _uberShaderPassDescriptors;
 

@@ -74,10 +74,13 @@ void VulkanEngine::InitVulkan()
 	VkPhysicalDeviceVulkan12Features features12{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};	
 	//features12.bufferDeviceAddress = true;
 	features12.descriptorIndexing = true;
+	features12.runtimeDescriptorArray = true;
+	features12.descriptorBindingPartiallyBound = true;
 
 
 	VkPhysicalDeviceVulkan11Features features11{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};	
 	features11.shaderDrawParameters = true;
+	
 	
 
 	VkPhysicalDeviceFeatures fineGrainedFeatures{};
@@ -92,12 +95,6 @@ void VulkanEngine::InitVulkan()
 	vkb::PhysicalDeviceSelector selector  ( vkb_inst );
 	std::cout << "Initializing Vulkan 3.1" << std::endl;
 
-	fmt::print("{}.{}.{}\n",
-		VK_API_VERSION_MAJOR(4210992),
-		VK_API_VERSION_MINOR(4210992),
-		VK_API_VERSION_PATCH(4210992)
-	);
-	
 	auto physical_device_selector_return = selector
 		.set_minimum_version(1, 2)
 		// .set_required_features_13(features)
@@ -122,8 +119,7 @@ void VulkanEngine::InitVulkan()
 	vkb::DeviceBuilder deviceBuilder{ physicalDevice };
 
 
-
-
+	// Vulkan 1.3 features eeegh (this is the only way to allow me to target 1.3 while also allowing me to use renderdoc on my amd integrated graphics :skull:)
 	VkPhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeatures{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES};
 	dynamicRenderingFeatures.dynamicRendering = VK_TRUE;
 	deviceBuilder.add_pNext(&dynamicRenderingFeatures);
@@ -131,6 +127,8 @@ void VulkanEngine::InitVulkan()
 	VkPhysicalDeviceSynchronization2FeaturesKHR synchronization2Features{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR};
 	synchronization2Features.synchronization2 = VK_TRUE;
 	deviceBuilder.add_pNext(&synchronization2Features);
+
+	
 
 
 	vkb::Device vkbDevice = deviceBuilder.build().value();
@@ -369,7 +367,7 @@ void VulkanEngine::InitDescriptors()
 	//create a descriptor pool that will hold 10 sets with 1 image each
     std::vector<DescriptorAllocator::PoolSizeRatio> globalSizes = 
     {
-        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5 },
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 20 },
         { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 5 },
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 5 },
         { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10 }
@@ -397,20 +395,60 @@ void VulkanEngine::InitDescriptors()
         builder.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER); // node transform buffer
 		builder.add_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER); // primitive buffer
 		builder.add_binding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER); // node primitive index buffer
+		builder.add_binding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER); // material buffer
 		
-        _geometryPassDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_VERTEX_BIT);
+        _geometryPassDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
     }
 	_geometryPassDescriptors = globalDescriptorAllocator.allocate(_device, _geometryPassDescriptorLayout);
 
-	{
-		DescriptorLayoutBuilder builder;
-		builder.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // geometry buffer
-		builder.add_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // normal buffer
-		builder.add_binding(2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // albedo / specular buffer
+	// {
+	// 	DescriptorLayoutBuilder builder;
+	// 	builder.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // geometry buffer
+	// 	builder.add_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // normal buffer
+	// 	builder.add_binding(2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // albedo / specular buffer
 		
-		_deferredPassDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT);
+	// 	_deferredPassDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT);
+	// }
+	// _deferredPassDescriptors = globalDescriptorAllocator.allocate(_device, _deferredPassDescriptorLayout);
+
+
+	{
+		// update these values to be useful for your specific use case
+		VkDescriptorSetLayoutBinding layoutBinding{};
+		layoutBinding.binding = 0u;
+		layoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		layoutBinding.descriptorCount = 10;
+		layoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	
+		VkDescriptorBindingFlags bindFlag = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT;
+	
+		VkDescriptorSetLayoutBindingFlagsCreateInfo extendedInfo{};
+		extendedInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+		extendedInfo.pNext = nullptr;
+		extendedInfo.bindingCount = 1u;
+		extendedInfo.pBindingFlags = &bindFlag;
+	
+		VkDescriptorSetLayoutCreateInfo layoutInfo{};
+		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+		layoutInfo.pNext = &extendedInfo;
+		layoutInfo.flags = 0;
+		layoutInfo.bindingCount = 1u;
+		layoutInfo.pBindings = &layoutBinding;
+	
+		vkCreateDescriptorSetLayout(_device, &layoutInfo, nullptr, &_texturesDescriptorLayout);
 	}
-	_deferredPassDescriptors = globalDescriptorAllocator.allocate(_device, _deferredPassDescriptorLayout);
+	_texturesDescriptors = globalDescriptorAllocator.allocate(_device, _texturesDescriptorLayout);
+
+
+	//{
+	//	DescriptorLayoutBuilder builder;
+	//	builder.add_binding(0, VK_DESCRIPTOR_TYPE_);
+	//	
+	//	_deferredPassDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT);
+	//}
+	//_deferredPassDescriptors = globalDescriptorAllocator.allocate(_device, _deferredPassDescriptorLayout);
+
+	//
 
     {
         DescriptorLayoutBuilder builder;
@@ -456,7 +494,9 @@ void VulkanEngine::InitDescriptors()
 		vkDestroyDescriptorSetLayout(_device, _postProcessPassDescriptorLayout, nullptr);
 		vkDestroyDescriptorSetLayout(_device, _geometryPassDescriptorLayout, nullptr);
 		vkDestroyDescriptorSetLayout(_device, _vertexDescriptorLayout, nullptr);
-		vkDestroyDescriptorSetLayout(_device, _deferredPassDescriptorLayout, nullptr);
+		// vkDestroyDescriptorSetLayout(_device, _deferredPassDescriptorLayout, nullptr);
+		// vkDestroyDescriptorSetLayout(_device, _uberShaderPassDescriptorLayout, nullptr);
+		vkDestroyDescriptorSetLayout(_device, _texturesDescriptorLayout, nullptr);
 	});
 
 
@@ -598,7 +638,8 @@ void VulkanEngine::InitGraphicsPipelines()
 	std::vector<VkDescriptorSetLayout> tmpLayoutVec;
 	tmpLayoutVec.push_back(_vertexDescriptorLayout);
 	tmpLayoutVec.push_back(_geometryPassDescriptorLayout);
-	tmpLayoutVec.push_back(_deferredPassDescriptorLayout);
+	// tmpLayoutVec.push_back(_deferredPassDescriptorLayout);
+	tmpLayoutVec.push_back(_texturesDescriptorLayout);
 
 
 	VkPipelineLayoutCreateInfo pipeline_layout_info = vkinit::pipeline_layout_create_info();
@@ -625,10 +666,10 @@ void VulkanEngine::InitGraphicsPipelines()
 
 	//connect the image format we will draw into, from draw image
 
-	pipelineBuilder.add_color_attachment(_drawImage.imageFormat, PipelineBuilder::disable_blending());
-	// pipelineBuilder.add_color_attachment(_positionImage.imageFormat, PipelineBuilder::disable_blending());
-	pipelineBuilder.add_color_attachment(_normalImage.imageFormat, PipelineBuilder::disable_blending());
-	pipelineBuilder.add_color_attachment(_albedoImage.imageFormat, PipelineBuilder::disable_blending());
+	pipelineBuilder.add_color_attachment(_drawImage.imageFormat,PipelineBuilder::enable_blending_alphablend());
+	pipelineBuilder.add_color_attachment(_positionImage.imageFormat, PipelineBuilder::enable_blending_alphablend());
+	pipelineBuilder.add_color_attachment(_normalImage.imageFormat, PipelineBuilder::enable_blending_alphablend());
+	// pipelineBuilder.add_color_attachment(_albedoImage.imageFormat, PipelineBuilder::enable_blending_alphablend());
 	pipelineBuilder.set_depth_format(_depthImage.imageFormat);
 
 	//finally build the pipeline
@@ -725,80 +766,97 @@ void VulkanEngine::InitImgui()
 
 void VulkanEngine::InitDefaultData()
 {
-//< init_data
-	// testMeshes = Loader::loadGltfMeshes(this,"..\\assets\\basicmesh.glb").value();
+
+	// //3 default textures, white, grey, black. 1 pixel each
+// uint32_t white = glm::packUnorm4x8(glm::vec4(1, 1, 1, 1));
+// _whiteImage = create_image((void*)&white, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM,
+// 	VK_IMAGE_USAGE_SAMPLED_BIT);
+
+// uint32_t grey = glm::packUnorm4x8(glm::vec4(0.66f, 0.66f, 0.66f, 1));
+// _greyImage = create_image((void*)&grey, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM,
+// 	VK_IMAGE_USAGE_SAMPLED_BIT);
+
+	uint32_t black = glm::packUnorm4x8(glm::vec4(0, 0, 0, 0));
+	_blackImage = create_image((void*)&black, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM,
+		VK_IMAGE_USAGE_SAMPLED_BIT);
+
+	//checkerboard image
+	uint32_t magenta = glm::packUnorm4x8(glm::vec4(1, 0, 1, 1));
+	std::array<uint32_t, 16 * 16 > pixels; //for 16x16 checkerboard texture
+	for (int x = 0; x < 16; x++) {
+		for (int y = 0; y < 16; y++) {
+			pixels[y * 16 + x] = ((x % 2) ^ (y % 2)) ? magenta : black;
+		}
+	}
+	_errorCheckerboardImage = create_image(pixels.data(), VkExtent3D{ 16, 16, 1 }, VK_FORMAT_R8G8B8A8_UNORM,
+		VK_IMAGE_USAGE_SAMPLED_BIT);
+
+	VkSamplerCreateInfo sampl = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
+
+	sampl.magFilter = VK_FILTER_NEAREST;
+	sampl.minFilter = VK_FILTER_NEAREST;
+
+	vkCreateSampler(_device, &sampl, nullptr, &_defaultSamplerNearest);
+
+	sampl.magFilter = VK_FILTER_LINEAR;
+	sampl.minFilter = VK_FILTER_LINEAR;
+	vkCreateSampler(_device, &sampl, nullptr, &_defaultSamplerLinear);
+
+	_mainDeletionQueue.push_function([&]() {
+		vkDestroySampler(_device, _defaultSamplerNearest, nullptr);
+		vkDestroySampler(_device, _defaultSamplerLinear, nullptr);
+
+		// 	destroy_image(_whiteImage);
+		// 	destroy_image(_greyImage);
+		destroy_image(_blackImage);
+		destroy_image(_errorCheckerboardImage);
+		});
+
+
+
 	std::vector<std::string> modelPaths;
-	modelPaths.push_back("..\\assets\\DragonDispersion.glb");
-	modelData = Loader::LoadGltfModel(modelPaths).value();
-	Loader::PrintModelData(*modelData);
+	// modelPaths.push_back("..\\assets\\DragonDispersion.glb");
+	modelPaths.push_back("../assets/fumo/scene.gltf");
+	modelData = Loader::LoadGltfModel(this, modelPaths).value();
+	// Loader::PrintModelData(*modelData);
 	modelBuffers = Loader::LoadGeometryFromGLTF(*modelData, this);
 
 	{
 		DescriptorWriter writer;
-		writer.write_buffer(0, modelBuffers.vertexBuffer.buffer, 
-				modelData->vertices.size() * sizeof(Vertex), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		writer.write_buffer(0, modelBuffers.vertexBuffer.buffer,
+			modelData->vertices.size() * sizeof(Vertex), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 		writer.update_set(_device, _vertexDescriptors);
 	}
 
 	{
 		DescriptorWriter writer;
-		writer.write_buffer(0, modelBuffers.nodeTransformBuffer.buffer, 
-				modelData->nodeTransforms.size() * sizeof(glm::mat4), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		writer.write_buffer(0, modelBuffers.nodeTransformBuffer.buffer,
+			modelData->nodeTransforms.size() * sizeof(glm::mat4), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
 		writer.write_buffer(1, modelBuffers.primitiveBuffer.buffer,
-				modelData->primitives.size() * sizeof(LoadedPrimitive), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+			modelData->primitives.size() * sizeof(PrimitiveProperties), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
 		writer.write_buffer(2, modelBuffers.nodePrimitivePairBuffer.buffer,
-				modelData->nodePrimitivePairs.size() * sizeof(NodePrimitivePair), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+			modelData->nodePrimitivePairs.size() * sizeof(NodePrimitivePair), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+
+		writer.write_buffer(3, modelBuffers.materialBuffer.buffer,
+			modelData->materials.size() * sizeof(LoadedMaterial), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+
 		writer.update_set(_device, _geometryPassDescriptors);
 	}
 
-	_mainDeletionQueue.push_function([&](){
+	{
+		DescriptorWriter writer;
+		for (int i = 0; i < modelData->images.size(); i++) {
+			writer.write_texture(0, modelData->images[i].imageView, _defaultSamplerNearest, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		}
+		writer.write_texture_write(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		writer.update_set(_device, _texturesDescriptors);
+
+	}
+
+	_mainDeletionQueue.push_function([&]() {
 		Loader::DestroyModelData(modelBuffers, this);
-	});
+		});
 
-	// //3 default textures, white, grey, black. 1 pixel each
-	// uint32_t white = glm::packUnorm4x8(glm::vec4(1, 1, 1, 1));
-	// _whiteImage = create_image((void*)&white, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM,
-	// 	VK_IMAGE_USAGE_SAMPLED_BIT);
-
-	// uint32_t grey = glm::packUnorm4x8(glm::vec4(0.66f, 0.66f, 0.66f, 1));
-	// _greyImage = create_image((void*)&grey, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM,
-	// 	VK_IMAGE_USAGE_SAMPLED_BIT);
-
-	// uint32_t black = glm::packUnorm4x8(glm::vec4(0, 0, 0, 0));
-	// _blackImage = create_image((void*)&black, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM,
-	// 	VK_IMAGE_USAGE_SAMPLED_BIT);
-
-	// //checkerboard image
-	// uint32_t magenta = glm::packUnorm4x8(glm::vec4(1, 0, 1, 1));
-	// std::array<uint32_t, 16 *16 > pixels; //for 16x16 checkerboard texture
-	// for (int x = 0; x < 16; x++) {
-	// 	for (int y = 0; y < 16; y++) {
-	// 		pixels[y*16 + x] = ((x % 2) ^ (y % 2)) ? magenta : black;
-	// 	}
-	// }
-	// _errorCheckerboardImage = create_image(pixels.data(), VkExtent3D{16, 16, 1}, VK_FORMAT_R8G8B8A8_UNORM,
-	// 	VK_IMAGE_USAGE_SAMPLED_BIT);
-
-	// VkSamplerCreateInfo sampl = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
-
-	// sampl.magFilter = VK_FILTER_NEAREST;
-	// sampl.minFilter = VK_FILTER_NEAREST;
-
-	// vkCreateSampler(_device, &sampl, nullptr, &_defaultSamplerNearest);
-
-	// sampl.magFilter = VK_FILTER_LINEAR;
-	// sampl.minFilter = VK_FILTER_LINEAR;
-	// vkCreateSampler(_device, &sampl, nullptr, &_defaultSamplerLinear);
-
-	// _mainDeletionQueue.push_function([&](){
-	// 	vkDestroySampler(_device,_defaultSamplerNearest,nullptr);
-	// 	vkDestroySampler(_device,_defaultSamplerLinear,nullptr);
-
-	// 	destroy_image(_whiteImage);
-	// 	destroy_image(_greyImage);
-	// 	destroy_image(_blackImage);
-	// 	destroy_image(_errorCheckerboardImage);
-	// });
 }

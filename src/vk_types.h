@@ -83,6 +83,7 @@ struct GPUModelBuffers {
     AllocatedBuffer nodeTransformBuffer;
     AllocatedBuffer primitiveBuffer;
     AllocatedBuffer nodePrimitivePairBuffer;
+    AllocatedBuffer materialBuffer;
     AllocatedBuffer drawCmdBuffer;
 };
 
