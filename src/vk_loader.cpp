@@ -16,7 +16,7 @@
 #include "vk_mem_alloc.h"
 
 
-std::optional<std::shared_ptr<LoadedGLTF>> Loader::LoadGltfModel(VulkanEngine* engine, const std::span<std::string> filePaths){
+std::optional<std::shared_ptr<LoadedGLTF>> Loader::LoadGltfModel(VulkanEngine* engine, const std::unordered_map<std::string, std::vector<glm::mat4>>& filePathsToInstances){
     std::shared_ptr<LoadedGLTF> scene = std::make_shared<LoadedGLTF>();
     LoadedGLTF& loadedModel = *scene.get();
     fastgltf::Parser parser = fastgltf::Parser(
@@ -33,10 +33,23 @@ std::optional<std::shared_ptr<LoadedGLTF>> Loader::LoadGltfModel(VulkanEngine* e
     defaultMaterial.alphaCutoff = 0.0f;
     defaultMaterial.flags = 0;
 
-    loadedModel.images.push_back(engine->_errorCheckerboardImage);
+	uint32_t black = glm::packUnorm4x8(glm::vec4(0, 0, 0, 1));
 
-    for (auto& filePath : filePaths){
-     
+	//checkerboard image
+	uint32_t magenta = glm::packUnorm4x8(glm::vec4(1, 0, 1, 1));
+	std::array<uint32_t, 16 * 16 > pixels; //for 16x16 checkerboard texture
+	for (int x = 0; x < 16; x++) {
+		for (int y = 0; y < 16; y++) {
+			pixels[y * 16 + x] = ((x % 2) ^ (y % 2)) ? magenta : black;
+		}
+	}
+	AllocatedImage _errorCheckerboardImage = engine->create_image(pixels.data(), VkExtent3D{ 16, 16, 1 }, VK_FORMAT_R8G8B8A8_UNORM,
+		VK_IMAGE_USAGE_SAMPLED_BIT);
+
+    loadedModel.images.push_back(_errorCheckerboardImage);
+
+    for (auto& filePathPair : filePathsToInstances){
+        std::string filePath = filePathPair.first;
         fmt::print("Loading GLTF: {}\n", filePath);
 
         constexpr auto gltfOptions = fastgltf::Options::DontRequireValidAssetMember | fastgltf::Options::AllowDouble | fastgltf::Options::LoadGLBBuffers | fastgltf::Options::LoadExternalBuffers;
@@ -98,7 +111,11 @@ std::optional<std::shared_ptr<LoadedGLTF>> Loader::LoadGltfModel(VulkanEngine* e
             const fastgltf::Mesh& gltfMesh = gltfAsset.meshes[meshIdx];
             LoadedMesh& loadedMesh = loadedModel.meshes[meshIdx];
             
-            if (!Loader::LoadGltfMesh(gltfAsset, gltfMesh, &loadedModel, &loadedMesh, &loadedModel.vertices, &loadedModel.indices, &loadedModel.primitives, &loadedModel.primitivePropertiesBufferVec)){
+            if (!Loader::LoadGltfMesh(gltfAsset, gltfMesh,
+                 &loadedModel, &loadedMesh, 
+                 &loadedModel.vertices, &loadedModel.indices, 
+                 &loadedModel.primitives, &loadedModel.primitivePropertiesBufferVec, 
+                 initImagesSize, initMaterialsSize)){
                 assert(false);
             }
         }
@@ -137,6 +154,13 @@ std::optional<std::shared_ptr<LoadedGLTF>> Loader::LoadGltfModel(VulkanEngine* e
         }
 
 
+        size_t initInstanceTransformsSize = loadedModel.instanceTransforms.size();
+        // loadedModel.instanceTransforms.resize(initInstanceTransformsSize+ filePathPair.second.size());
+        loadedModel.instanceTransforms.reserve(initInstanceTransformsSize + filePathPair.second.size());
+        loadedModel.instanceTransforms.insert(loadedModel.instanceTransforms.end(), filePathPair.second.begin(), filePathPair.second.end());
+
+
+
         size_t initNodePrimitivePairSize = loadedModel.nodePrimitivePairs.size();
         size_t initDrawCmdBufferVecSize = loadedModel.drawCmdBufferVec.size();
         // Generate draw calls by iterating through nodes across primitives.
@@ -154,10 +178,10 @@ std::optional<std::shared_ptr<LoadedGLTF>> Loader::LoadGltfModel(VulkanEngine* e
                 const LoadedPrimitive& prim = loadedModel.primitives[ primIdx ];
                 loadedModel.drawCmdBufferVec.push_back ( VkDrawIndexedIndirectCommand{
                     prim.indexCount, 		// indexCount
-                    1,						// instanceCount
+                    static_cast<uint32_t>(filePathPair.second.size()),						// instanceCount
                     prim.indexStartIdx,		// firstIndex
                     prim.vertexStartIdx,	// vertexOffset 
-                    0						// firstInstance
+                    static_cast<uint32_t>(initInstanceTransformsSize)						// firstInstance
                 } );
             }
         } 
@@ -170,11 +194,9 @@ std::optional<std::shared_ptr<LoadedGLTF>> Loader::LoadGltfModel(VulkanEngine* e
             static_cast<uint32_t>(initPrimitiveSize), static_cast<uint32_t>(loadedModel.primitives.size() - initPrimitiveSize),
             static_cast<uint32_t>(initNodePrimitivePairSize), static_cast<uint32_t>(loadedModel.nodePrimitivePairs.size() - initNodePrimitivePairSize),
             static_cast<uint32_t>(initTopNodesSize), static_cast<uint32_t>(loadedModel.topNodes.size() - initTopNodesSize),
-            static_cast<uint32_t>(initDrawCmdBufferVecSize), static_cast<uint32_t>(loadedModel.drawCmdBufferVec.size() - initDrawCmdBufferVecSize)
+            static_cast<uint32_t>(initDrawCmdBufferVecSize), static_cast<uint32_t>(loadedModel.drawCmdBufferVec.size() - initDrawCmdBufferVecSize),
+            static_cast<uint32_t>(initInstanceTransformsSize), static_cast<uint32_t>(filePathPair.second.size())
         } );
-
-        // Generate buffers and send them to the device
-        // ;
 
 
     }
@@ -186,7 +208,8 @@ std::optional<std::shared_ptr<LoadedGLTF>> Loader::LoadGltfModel(VulkanEngine* e
 bool Loader::LoadGltfMesh(const fastgltf::Asset& gltfAsset, const fastgltf::Mesh& gltfMesh,
                         LoadedGLTF* outModel, LoadedMesh* outMesh, 
                         std::vector<Vertex>* vertices, std::vector<uint32_t>* indices,
-                        std::vector<LoadedPrimitive>* primitives, std::vector<PrimitiveProperties>* primitiveProperties){
+                        std::vector<LoadedPrimitive>* primitives, std::vector<PrimitiveProperties>* primitiveProperties,
+                        size_t baseImageIdx, size_t baseMaterialIdx){
     
     size_t initPrimitivesSize = primitives->size();
 	outMesh->primitiveStartIdx = initPrimitivesSize;
@@ -200,7 +223,7 @@ bool Loader::LoadGltfMesh(const fastgltf::Asset& gltfAsset, const fastgltf::Mesh
         PrimitiveProperties& outPrimitiveProperties = (*primitiveProperties)[initPrimitivesSize + primIdx];
 
         if (it->materialIndex.has_value()) {
-			outPrimitiveProperties.materialIdx = it->materialIndex.value() + 1;
+			outPrimitiveProperties.materialIdx = baseMaterialIdx + it->materialIndex.value();
 
             auto& material = gltfAsset.materials[it->materialIndex.value()];
 
@@ -210,7 +233,7 @@ bool Loader::LoadGltfMesh(const fastgltf::Asset& gltfAsset, const fastgltf::Mesh
 				if (!texture.imageIndex.has_value())
 					return false;
 
-				outPrimitiveProperties.textureIdx = texture.imageIndex.value() + 1;
+				outPrimitiveProperties.textureIdx = baseImageIdx + texture.imageIndex.value();
 				// if (baseColorTexture->transform && baseColorTexture->transform->texCoordIndex.has_value()) {
 				// 	baseColorTexcoordIndex = baseColorTexture->transform->texCoordIndex.value();
 				// } else {
@@ -363,6 +386,7 @@ bool Loader::LoadGltfImage(VulkanEngine* engine,const std::string rootFilePath, 
 
             stbi_image_free(data);
 			fmt::print("Loaded Image: {}\n", path);
+
         },
         [&](const fastgltf::sources::Array& vector) {
             int width, height, nrChannels;
@@ -402,9 +426,10 @@ bool Loader::LoadGltfImage(VulkanEngine* engine,const std::string rootFilePath, 
         },
     }, image.data);
 
-    engine->_mainDeletionQueue.push_function([=]() {
-        engine->destroy_image(*outImage);
-    });
+    // engine->_mainDeletionQueue.push_function([=]() {
+    //     // fmt::print("Destroying Image: {}\n", path);
+    //     engine->destroy_image(*outImage);
+    // });
     return true;
 
 }
@@ -426,7 +451,7 @@ bool Loader::LoadGltfMaterial(const fastgltf::Asset& gltfAsset, const fastgltf::
 }
 
 
-void LoadedGLTF::clearAll(){
+void LoadedGLTF::ClearAll(){
     meshes.clear();
     primitives.clear();
     vertices.clear();
@@ -440,6 +465,7 @@ void LoadedGLTF::clearAll(){
     images.clear();
     materials.clear();
     primitivePropertiesBufferVec.clear();
+    instanceTransforms.clear();
 }
 
 GPUModelBuffers Loader::LoadGeometryFromGLTF(const LoadedGLTF& inModel, VulkanEngine* engine){
@@ -455,6 +481,7 @@ GPUModelBuffers Loader::LoadGeometryFromGLTF(const LoadedGLTF& inModel, VulkanEn
     const size_t nodePrimitivePairBufferSize = inModel.nodePrimitivePairs.size() * sizeof(NodePrimitivePair);
     const size_t materialBufferSize = inModel.materials.size() * sizeof(LoadedMaterial);
     const size_t drawCmdBufferVecBufferSize = inModel.drawCmdBufferVec.size() * sizeof(VkDrawIndexedIndirectCommand);
+    const size_t instanceTransformBufferSize = inModel.instanceTransforms.size() * sizeof(glm::mat4);
 
     // create buffer on GPU to hold data
 	GPUModelBuffers modelGeometry;
@@ -496,6 +523,10 @@ GPUModelBuffers Loader::LoadGeometryFromGLTF(const LoadedGLTF& inModel, VulkanEn
         VMA_MEMORY_USAGE_GPU_ONLY, (void*) inModel.drawCmdBufferVec.data());
 
 
+    loader.AddBuffer(instanceTransformBufferSize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VMA_MEMORY_USAGE_GPU_ONLY, (void*) inModel.instanceTransforms.data());
+
     std::vector<AllocatedBuffer> res = loader.UploadBuffers();
     modelGeometry.vertexBuffer = res[0];
     modelGeometry.indexBuffer = res[1];
@@ -504,6 +535,7 @@ GPUModelBuffers Loader::LoadGeometryFromGLTF(const LoadedGLTF& inModel, VulkanEn
     modelGeometry.nodePrimitivePairBuffer = res[4];
     modelGeometry.materialBuffer = res[5];
     modelGeometry.drawCmdBuffer = res[6];
+    modelGeometry.instanceTransformBuffer = res[7];
 
 	return modelGeometry;
 }
@@ -582,6 +614,7 @@ void Loader::DestroyModelData(const GPUModelBuffers& modelData, VulkanEngine* en
     engine->destroy_buffer(modelData.nodePrimitivePairBuffer);
     engine->destroy_buffer(modelData.materialBuffer);
     engine->destroy_buffer(modelData.drawCmdBuffer);
+    engine->destroy_buffer(modelData.instanceTransformBuffer);
 }
 
 

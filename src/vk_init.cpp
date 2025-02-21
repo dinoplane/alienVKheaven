@@ -1,4 +1,7 @@
 #include "vk_engine.h"
+#include <vk_scene_loader.h>
+#include <vk_loader.h>
+#include <vk_scene.h>
 
 bool isDeviceSuitable(VkPhysicalDevice device) {
     VkPhysicalDeviceProperties deviceProperties;
@@ -399,6 +402,7 @@ void VulkanEngine::InitDescriptors()
 		builder.add_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER); // primitive buffer
 		builder.add_binding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER); // node primitive index buffer
 		builder.add_binding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER); // material buffer
+		builder.add_binding(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER); // instance buffer
 		
         _geometryPassDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
     }
@@ -833,31 +837,6 @@ void VulkanEngine::InitImgui()
 
 void VulkanEngine::InitDefaultData()
 {
-
-	// //3 default textures, white, grey, black. 1 pixel each
-// uint32_t white = glm::packUnorm4x8(glm::vec4(1, 1, 1, 1));
-// _whiteImage = create_image((void*)&white, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM,
-// 	VK_IMAGE_USAGE_SAMPLED_BIT);
-
-// uint32_t grey = glm::packUnorm4x8(glm::vec4(0.66f, 0.66f, 0.66f, 1));
-// _greyImage = create_image((void*)&grey, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM,
-// 	VK_IMAGE_USAGE_SAMPLED_BIT);
-
-	uint32_t black = glm::packUnorm4x8(glm::vec4(0, 0, 0, 1));
-	_blackImage = create_image((void*)&black, VkExtent3D{ 1, 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM,
-		VK_IMAGE_USAGE_SAMPLED_BIT);
-
-	//checkerboard image
-	uint32_t magenta = glm::packUnorm4x8(glm::vec4(1, 0, 1, 1));
-	std::array<uint32_t, 16 * 16 > pixels; //for 16x16 checkerboard texture
-	for (int x = 0; x < 16; x++) {
-		for (int y = 0; y < 16; y++) {
-			pixels[y * 16 + x] = ((x % 2) ^ (y % 2)) ? magenta : black;
-		}
-	}
-	_errorCheckerboardImage = create_image(pixels.data(), VkExtent3D{ 16, 16, 1 }, VK_FORMAT_R8G8B8A8_UNORM,
-		VK_IMAGE_USAGE_SAMPLED_BIT);
-
 	VkSamplerCreateInfo sampl = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 
 	sampl.magFilter = VK_FILTER_NEAREST;
@@ -872,60 +851,48 @@ void VulkanEngine::InitDefaultData()
 	_mainDeletionQueue.push_function([&]() {
 		vkDestroySampler(_device, _defaultSamplerNearest, nullptr);
 		vkDestroySampler(_device, _defaultSamplerLinear, nullptr);
+	});
 
-		// 	destroy_image(_whiteImage);
-		// 	destroy_image(_greyImage);
-		destroy_image(_blackImage);
-		destroy_image(_errorCheckerboardImage);
-		});
-
-
-
-	std::vector<std::string> modelPaths;
-	modelPaths.push_back("..\\assets\\DragonDispersion.glb");
-	// modelPaths.push_back("../assets/");
-	modelData = Loader::LoadGltfModel(this, modelPaths).value();
-	// Loader::PrintModelData(*modelData);
-	modelBuffers = Loader::LoadGeometryFromGLTF(*modelData, this);
-
+	SceneData sceneData{};
+	SceneLoader::LoadSceneData("../assets/scenes/demo.scn", &sceneData);
+	// Scene scene{};
+	scene = std::make_shared<Scene>();
+	SceneLoader::LoadScene(sceneData, scene.get(), this);
+	
 	{
 		DescriptorWriter writer;
-		writer.write_buffer(0, modelBuffers.vertexBuffer.buffer,
-			modelData->vertices.size() * sizeof(Vertex), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		writer.write_buffer(0, scene->modelBuffers.vertexBuffer.buffer,
+			scene->modelData->vertices.size() * sizeof(Vertex), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 		writer.update_set(_device, _vertexDescriptors);
 	}
 
 	{
 		DescriptorWriter writer;
-		writer.write_buffer(0, modelBuffers.nodeTransformBuffer.buffer,
-			modelData->nodeTransforms.size() * sizeof(glm::mat4), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		writer.write_buffer(0, scene->modelBuffers.nodeTransformBuffer.buffer,
+			scene->modelData->nodeTransforms.size() * sizeof(glm::mat4), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
-		writer.write_buffer(1, modelBuffers.primitiveBuffer.buffer,
-			modelData->primitives.size() * sizeof(PrimitiveProperties), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		writer.write_buffer(1, scene->modelBuffers.primitiveBuffer.buffer,
+			scene->modelData->primitives.size() * sizeof(PrimitiveProperties), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
-		writer.write_buffer(2, modelBuffers.nodePrimitivePairBuffer.buffer,
-			modelData->nodePrimitivePairs.size() * sizeof(NodePrimitivePair), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		writer.write_buffer(2, scene->modelBuffers.nodePrimitivePairBuffer.buffer,
+			scene->modelData->nodePrimitivePairs.size() * sizeof(NodePrimitivePair), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
-		writer.write_buffer(3, modelBuffers.materialBuffer.buffer,
-			modelData->materials.size() * sizeof(LoadedMaterial), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		writer.write_buffer(3, scene->modelBuffers.materialBuffer.buffer,
+			scene->modelData->materials.size() * sizeof(LoadedMaterial), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		
+		writer.write_buffer(4, scene->modelBuffers.instanceTransformBuffer.buffer,
+			scene->modelData->instanceTransforms.size() * sizeof(glm::mat4), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
 		writer.update_set(_device, _geometryPassDescriptors);
 	}
 
 	{
 		DescriptorWriter writer;
-		for (int i = 0; i < modelData->images.size(); i++) {
-			writer.write_texture(0, modelData->images[i].imageView, _defaultSamplerNearest, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		for (int i = 0; i < scene->modelData->images.size(); i++) {
+			writer.write_texture(0, scene->modelData->images[i].imageView, _defaultSamplerNearest, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		}
 		writer.write_texture_write(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		writer.update_set(_device, _texturesDescriptors);
 
 	}
-
-
-
-	_mainDeletionQueue.push_function([&]() {
-		Loader::DestroyModelData(modelBuffers, this);
-		});
-
 }

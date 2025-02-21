@@ -49,13 +49,16 @@ layout (set = 1, binding = 2) readonly buffer NodePrimitiveBuffer{
 } nodePrimitiveData;
 
 
+layout (set = 1, binding = 4) readonly buffer InstanceDataBuffer{ 
+    mat4 modelMatrices[];
+} instanceData;
+
+
 //push constants block
 layout( push_constant ) uniform constants
 {	
 	mat4 render_matrix;
 } PushConstants;
-
-
 
 void main() 
 {	
@@ -72,12 +75,14 @@ void main()
     // mat4 nodeTransform = mat4(1.0f);
 
 	//output data
-	gl_Position = PushConstants.render_matrix * nodeTransform * vec4(v.position, 1.0f);
+	gl_Position = PushConstants.render_matrix * instanceData.modelMatrices[gl_InstanceIndex] * nodeTransform * vec4(v.position, 1.0f);
 	outColor = v.normal.xyz;
 	outUV.x = v.uv_x;
 	outUV.y = v.uv_y;
 	outPosition = v.position;
-	outNormal = v.normal;
+    // vec4 norm = instanceData.modelMatrices[gl_InstanceIndex] * vec4(v.normal, 0.0f);
+	// outNormal = norm.xyz;
+    outNormal = v.normal;
 
     outTextureIndex = primitive.textureIdx;
     outMaterialIndex = primitive.materialIdx;

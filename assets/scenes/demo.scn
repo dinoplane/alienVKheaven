@@ -1,0 +1,28 @@
+{
+"classname" "model"
+"origin" "0 1 0"
+"angles" "0 0 0"
+"scale" "0.5 0.5 0.5"
+"path" "../assets/models//fumo/scene.gltf"
+}
+{
+"classname" "model"
+"origin" "0 0 0"
+"angles" "0 0 0"
+"scale" "3 3 3"
+"path" "../assets/models//table/scene.gltf"
+}
+{
+"classname" "model"
+"origin" "0 0 0"
+"angles" "0 0 0"
+"scale" "1 1 1"
+"path" "../assets/models//skyline/scene.gltf"
+}
+{
+"classname" "model"
+"origin" "0 1 1"
+"angles" "0 0 0"
+"scale" "0.1 0.1 0.1"
+"path" "../assets/models//earth/scene.gltf"
+}

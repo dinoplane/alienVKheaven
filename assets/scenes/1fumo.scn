@@ -1,0 +1,14 @@
+{
+"classname" "model"
+"origin" "0 0 0"
+"angles" "347.91802352212494 284.42749876137145 192.43142841308574"
+"scale" "0.0026101987550815587 0.0026101987550815587 0.0026101987550815587"
+"path" "../assets/asteroid_01/scene.gltf"
+}
+{
+"classname" "model"
+"origin" "12 0 0"
+"angles" "40 40 40"
+"scale" "1.0 1.0 1.0"
+"path" "../assets/fumo/scene.gltf"
+}

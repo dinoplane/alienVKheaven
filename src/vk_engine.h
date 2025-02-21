@@ -29,6 +29,7 @@
 #include "vk_mem_alloc.h"
 
 #include "camera.h"
+#include "vk_scene.h"
 
 constexpr bool bUseValidationLayers = true;
 
@@ -202,20 +203,15 @@ public:
 	VmaAllocator _allocator; //vma lib allocator
 
 
-	//Default Data
-	AllocatedImage _whiteImage;
-	AllocatedImage _blackImage;
-	AllocatedImage _greyImage;
-	AllocatedImage _errorCheckerboardImage;
-
     VkSampler _defaultSamplerLinear;
 	VkSampler _defaultSamplerNearest;
 
 	GPUMeshBuffers rectangle;
 	
 	// std::vector<std::shared_ptr<MeshAsset>> testMeshes;
-	std::shared_ptr<LoadedGLTF> modelData;
-	GPUModelBuffers modelBuffers;
+	// std::shared_ptr<LoadedGLTF> modelData;
+	// GPUModelBuffers modelBuffers;
+	std::shared_ptr<Scene> scene;
 	
 	GPUSceneData sceneData;
 

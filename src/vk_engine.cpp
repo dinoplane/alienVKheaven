@@ -5,6 +5,7 @@
 
 #include <fmt/core.h>
 #include <fmt/printf.h>
+#include "vk_scene_loader.h"
 
 #define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"
@@ -78,7 +79,7 @@ void VulkanEngine::cleanup()
 		//	destroy_buffer(mesh->meshBuffers.indexBuffer);
 		//	destroy_buffer(mesh->meshBuffers.vertexBuffer);
 		//}
-		modelData->clearAll();
+		scene->ClearAll();
 
 		_mainDeletionQueue.flush();
 
@@ -332,9 +333,9 @@ void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
 
 	vkCmdPushConstants(cmd, _geometryPassPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &push_constants);
 	
-	vkCmdBindIndexBuffer(cmd, modelBuffers.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+	vkCmdBindIndexBuffer(cmd, scene->modelBuffers.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
-	vkCmdDrawIndexedIndirect(cmd, modelBuffers.drawCmdBuffer.buffer, 0, modelData->drawCmdBufferVec.size(), sizeof(VkDrawIndexedIndirectCommand));
+	vkCmdDrawIndexedIndirect(cmd, scene->modelBuffers.drawCmdBuffer.buffer, 0, scene->modelData->drawCmdBufferVec.size(), sizeof(VkDrawIndexedIndirectCommand));
 
 
 	vkCmdEndRenderingKHR(cmd);

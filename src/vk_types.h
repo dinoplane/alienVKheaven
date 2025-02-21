@@ -19,6 +19,7 @@
 
 #include <glm/mat4x4.hpp>
 #include <glm/vec4.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 extern PFN_vkQueueSubmit2KHR vkQueueSubmit2KHR_;
 #define vkQueueSubmit2KHR vkQueueSubmit2KHR_
@@ -70,6 +71,35 @@ struct Vertex {
 	glm::vec4 color;
 };
 
+struct Transform 
+{
+    glm::mat4 translation;
+    glm::mat4 rotation;
+    glm::mat4 scale;
+
+    glm::mat4 GetModelMatrix() const
+    {
+        return translation * rotation * scale;
+    }
+
+    void SetPosition(const glm::vec3& pos)
+    {
+        translation = glm::translate(glm::mat4(1.0f), pos);
+    }
+    
+    void SetRotation(const glm::vec3& rot)
+    {
+        rotation = glm::rotate(glm::mat4(1.0f), glm::radians(rot.x), glm::vec3(1.0f, 0.0f, 0.0f));
+        rotation = glm::rotate(rotation, glm::radians(rot.y), glm::vec3(0.0f, 1.0f, 0.0f));
+        rotation = glm::rotate(rotation, glm::radians(rot.z), glm::vec3(0.0f, 0.0f, 1.0f));
+    }
+
+    void SetScale(const glm::vec3& scaleVec)
+    {
+        scale = glm::scale(glm::mat4(1.0f), scaleVec);
+    }
+};
+
 // holds the resources needed for a mesh
 struct GPUMeshBuffers {
     AllocatedBuffer indexBuffer;
@@ -85,6 +115,7 @@ struct GPUModelBuffers {
     AllocatedBuffer nodePrimitivePairBuffer;
     AllocatedBuffer materialBuffer;
     AllocatedBuffer drawCmdBuffer;
+    AllocatedBuffer instanceTransformBuffer;
 };
 
 

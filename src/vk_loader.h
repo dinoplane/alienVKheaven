@@ -86,6 +86,9 @@ struct ModelData {
 
     uint32_t drawCmdBufferStartIdx;
     uint32_t drawCmdBufferCount;
+
+    uint32_t instanceTransformsStartIdx;
+    uint32_t instanceTransformsCount;
 };
 
 enum MaterialUniformFlags : std::uint32_t {
@@ -113,6 +116,7 @@ struct LoadedGLTF { // holds all the data for a group of gltf files
     std::vector<glm::mat4> nodeTransforms;
     std::vector<AllocatedImage> images;
     std::vector<LoadedMaterial> materials;
+    std::vector<glm::mat4> instanceTransforms;
 
     // nodes that dont have a parent, for iterating through the file in tree order
     std::vector<uint32_t> topNodes;
@@ -122,7 +126,6 @@ struct LoadedGLTF { // holds all the data for a group of gltf files
 
     std::vector<ModelData> modelDataVec;
 
-    ~LoadedGLTF() { clearAll(); };
 
     void refreshTransform(const glm::mat4& parentMatrix, uint32_t nodeIdx) 
     {
@@ -133,7 +136,7 @@ struct LoadedGLTF { // holds all the data for a group of gltf files
         }
     }
 
-    void clearAll();
+    void ClearAll();
 };
 
 
@@ -154,13 +157,14 @@ class Loader {
 public:
     // static std::optional<std::shared_ptr<LoadedGLTF>> LoadGltfModel(const std::string_view filePath);
 
-    static std::optional<std::shared_ptr<LoadedGLTF>> LoadGltfModel(VulkanEngine* engine, const std::span<std::string> filePaths);
+    static std::optional<std::shared_ptr<LoadedGLTF>> LoadGltfModel(VulkanEngine* engine, const std::unordered_map<std::string, std::vector<glm::mat4>>& filePathsToInstances);
 
 
     static bool LoadGltfMesh(const fastgltf::Asset& gltfAsset, const fastgltf::Mesh& gltfMesh,
                                 LoadedGLTF* outModel, LoadedMesh* outMesh, 
                                 std::vector<Vertex>* vertices, std::vector<uint32_t>* indices,
-                                std::vector<LoadedPrimitive>* primitives, std::vector<PrimitiveProperties>* primitiveProperties);
+                                std::vector<LoadedPrimitive>* primitives, std::vector<PrimitiveProperties>* primitiveProperties,
+                                size_t baseImageIdx, size_t baseMaterialIdx);
 
     static bool LoadGltfImage(VulkanEngine* engine, const std::string filePath,  const fastgltf::Asset& gltfAsset, const fastgltf::Image& image, LoadedGLTF* outModel, AllocatedImage* outImage);
     static bool LoadGltfMaterial(const fastgltf::Asset& gltfAsset, const fastgltf::Material& material, LoadedMaterial* outMaterial);

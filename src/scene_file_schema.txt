@@ -1,0 +1,30 @@
+{ // Everything will have these
+    "classname"
+    "origin"
+    "angles"
+    "scale"
+}
+
+{
+    "classname" "model"
+    "modelPath" string "filePath"
+}
+
+{
+    "classname" "light_directional"
+    "direction" vec3
+    "color" vec3
+}
+
+{
+    "classname" "light_point"
+    "radius" float
+    "color" vec3
+}
+
+
+{
+    "classname" "light_volume"?
+    "begin" vec3
+    "end" vec3
+}
