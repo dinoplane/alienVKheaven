@@ -1,3 +1,7 @@
+#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
+
 #include "vk_engine.h"
 #include <vk_scene_loader.h>
 #include <vk_loader.h>
@@ -424,7 +428,7 @@ void VulkanEngine::InitDescriptors()
 		VkDescriptorSetLayoutBinding layoutBinding{};
 		layoutBinding.binding = 0u;
 		layoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		layoutBinding.descriptorCount = 10;
+		layoutBinding.descriptorCount = 100;
 		layoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 	
 		VkDescriptorBindingFlags bindFlag = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT;
@@ -852,9 +856,19 @@ void VulkanEngine::InitDefaultData()
 		vkDestroySampler(_device, _defaultSamplerNearest, nullptr);
 		vkDestroySampler(_device, _defaultSamplerLinear, nullptr);
 	});
+	// LoadScene("../assets/scenes/demo.scn");
+
+}
+
+
+
+void VulkanEngine::LoadScene(const std::string& filePath){
+	if (isSceneLoaded) {
+		UnloadScene();
+	}
 
 	SceneData sceneData{};
-	SceneLoader::LoadSceneData("../assets/scenes/demo.scn", &sceneData);
+	SceneLoader::LoadSceneData(filePath, &sceneData);
 	// Scene scene{};
 	scene = std::make_shared<Scene>();
 	SceneLoader::LoadScene(sceneData, scene.get(), this);
@@ -893,6 +907,21 @@ void VulkanEngine::InitDefaultData()
 		}
 		writer.write_texture_write(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		writer.update_set(_device, _texturesDescriptors);
-
 	}
+	isSceneLoaded = true;
 }
+
+
+void VulkanEngine::UnloadScene(){
+	if (!isSceneLoaded) {
+		return;
+	}
+	//make sure the gpu has stopped doing its things
+	vkDeviceWaitIdle(_device);
+	scene->ClearAll();
+	scene.reset();
+
+	isSceneLoaded = false;
+}
+	
+

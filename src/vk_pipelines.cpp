@@ -1,4 +1,8 @@
-﻿#include <vk_pipelines.h>
+﻿#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
+
+#include <vk_pipelines.h>
 
 #include "vk_initializers.h"
 #include <fstream>

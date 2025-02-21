@@ -2,7 +2,9 @@
 // or project specific include files.
 
 #pragma once
-
+#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
 
 #include <SDL.h>
 #include <SDL_vulkan.h>
@@ -31,9 +33,18 @@
 #include "camera.h"
 #include "vk_scene.h"
 
+
 constexpr bool bUseValidationLayers = true;
 
 
+struct VulkanEngineUIState {
+	std::string loadedPath;
+	std::string status;
+};
+
+namespace VulkanEngineUI {
+	void RenderVulkanEngineUI(VulkanEngineUIState* engineUIState, VulkanEngine* engine);
+}
 
 struct DeletionQueue
 {
@@ -211,7 +222,12 @@ public:
 	// std::vector<std::shared_ptr<MeshAsset>> testMeshes;
 	// std::shared_ptr<LoadedGLTF> modelData;
 	// GPUModelBuffers modelBuffers;
+	VulkanEngineUIState engineUIState;
+
 	std::shared_ptr<Scene> scene;
+	bool isSceneLoaded{ false };
+	void LoadScene(const std::string& filePath);
+	void UnloadScene();
 	
 	GPUSceneData sceneData;
 
@@ -227,9 +243,18 @@ public:
 
 	static VulkanEngine& Get();
 
+
+	enum SceneLoadFlag {
+		SCENE_LOAD_FLAG_NONE = 0,
+		SCENE_LOAD_FLAG_FREEZE_RENDERING = 1 << 0,
+		SCENE_LOAD_FLAG_RESIZE = 1 << 1,
+		SCENE_LOAD_FLAG_CLEAR = 1 << 2,
+		SCENE_LOAD_FLAG_RELOAD = 1 << 3
+	};
+	SceneLoadFlag sceneLoadFlag{ SCENE_LOAD_FLAG_NONE };
 	bool resize_requested{false};
 	bool freeze_rendering{false};
-
+	bool scene_clear_requested{false};
 
 	//initializes everything in the engine
 	void init();

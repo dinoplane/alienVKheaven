@@ -10,6 +10,22 @@ add_subdirectory(fastgltf)
 add_subdirectory(fmt EXCLUDE_FROM_ALL)
 add_subdirectory(SDL EXCLUDE_FROM_ALL)
 
+add_subdirectory(nativefiledialog)
+# add_library(nativefiledialog STATIC)
+# target_include_directories(nativefiledialog PUBLIC ./nativefiledialog/src/include)
+# target_sources(nativefiledialog PRIVATE 
+#   nativefiledialog/src/include/nfd.h
+
+#   nativefiledialog/src/common.h
+#   nativefiledialog/src/nfd_common.h
+#   nativefiledialog/src/nfd_common.c
+#   nativefiledialog/src/nfd_gtk.c
+#   nativefiledialog/src/nfd_win.cpp
+#   nativefiledialog/src/nfd_cocoa.m
+# )
+
+# target_link_libraries(nativefiledialog PUBLIC $<$<BOOL:UNIX>:${GTK3_LIBRARIES}>)
+
 target_sources(vkbootstrap PRIVATE 
   vkbootstrap/VkBootstrap.h
   vkbootstrap/VkBootstrap.cpp
@@ -24,6 +40,8 @@ target_include_directories(vma INTERFACE vma)
 
 target_include_directories(glm INTERFACE glm)
 
+
+target_include_directories(stb_image INTERFACE stb_image)
 #add_library(sdl2 INTERFACE)
 
 #target_include_directories(sdl2 INTERFACE $ENV{VULKAN_SDK}/Include/SDL2 )
@@ -48,5 +66,3 @@ target_sources(imgui PRIVATE
   )
 
 target_link_libraries(imgui PUBLIC Vulkan::Vulkan SDL2::SDL2)
-
-target_include_directories(stb_image INTERFACE stb_image)

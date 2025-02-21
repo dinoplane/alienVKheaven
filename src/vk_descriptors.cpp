@@ -1,4 +1,8 @@
-﻿#include <vk_descriptors.h>
+﻿#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
+
+#include <vk_descriptors.h>
 
 void DescriptorLayoutBuilder::add_binding(uint32_t binding, VkDescriptorType type)
 {

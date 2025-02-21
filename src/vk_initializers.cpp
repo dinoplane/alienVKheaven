@@ -1,4 +1,8 @@
-﻿#include <vk_initializers.h>
+﻿#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
+
+#include <vk_initializers.h>
 
 //> init_cmd
 VkCommandPoolCreateInfo vkinit::command_pool_create_info(uint32_t queueFamilyIndex,

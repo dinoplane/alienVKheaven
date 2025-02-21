@@ -1,5 +1,6 @@
 ﻿#include "vk_engine.h"
 
+
 #include <thread>
 #include <chrono>
 
@@ -9,6 +10,7 @@
 
 #define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"
+
 
 VulkanEngine* loadedEngine = nullptr;
 
@@ -79,7 +81,7 @@ void VulkanEngine::cleanup()
 		//	destroy_buffer(mesh->meshBuffers.indexBuffer);
 		//	destroy_buffer(mesh->meshBuffers.vertexBuffer);
 		//}
-		scene->ClearAll();
+		UnloadScene();
 
 		_mainDeletionQueue.flush();
 
@@ -138,28 +140,30 @@ void VulkanEngine::draw()
 
 	VkImageSubresourceRange clearRange = vkinit::image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);
 
-	// DrawBackground(cmd);
-	vkutil::transition_image(cmd, _positionImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-	vkutil::transition_image(cmd, _normalImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-	vkutil::transition_image(cmd, _albedoImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+	vkCmdClearColorImage(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
 
-    vkCmdClearColorImage(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
-    vkCmdClearColorImage(cmd, _positionImage.image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
-    vkCmdClearColorImage(cmd, _normalImage.image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
-    vkCmdClearColorImage(cmd, _albedoImage.image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
+	if (isSceneLoaded){
+		vkutil::transition_image(cmd, _positionImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+		vkutil::transition_image(cmd, _normalImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+		vkutil::transition_image(cmd, _albedoImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 	
-	vkutil::transition_image(cmd, _positionImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-	vkutil::transition_image(cmd, _normalImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-	vkutil::transition_image(cmd, _albedoImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-	vkutil::transition_image(cmd, _depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
-
-	DrawGeometry(cmd);
-
-	vkutil::transition_image(cmd, _positionImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
-	vkutil::transition_image(cmd, _normalImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
-	vkutil::transition_image(cmd, _albedoImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
-
-	DrawLightingPass(cmd);
+		vkCmdClearColorImage(cmd, _positionImage.image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
+		vkCmdClearColorImage(cmd, _normalImage.image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
+		vkCmdClearColorImage(cmd, _albedoImage.image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
+		
+		vkutil::transition_image(cmd, _positionImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		vkutil::transition_image(cmd, _normalImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		vkutil::transition_image(cmd, _albedoImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		vkutil::transition_image(cmd, _depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+	
+		DrawGeometry(cmd);
+	
+		vkutil::transition_image(cmd, _positionImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+		vkutil::transition_image(cmd, _normalImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+		vkutil::transition_image(cmd, _albedoImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+	
+		DrawLightingPass(cmd);
+	}
 	
 	//transtion the draw image and the swapchain image into their correct transfer layouts
 	vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
@@ -456,6 +460,7 @@ void VulkanEngine::run()
 	//main loop
 	while (!bQuit)
 	{
+
         // auto start = std::chrono::system_clock::now();
 		//Handle events on queue
 		while (SDL_PollEvent(&e) != 0)
@@ -478,6 +483,32 @@ void VulkanEngine::run()
 
         UpdateScene();
 
+		switch (sceneLoadFlag)
+		{
+			case SCENE_LOAD_FLAG_CLEAR:
+				scene_clear_requested = true;
+				sceneLoadFlag = SCENE_LOAD_FLAG_NONE;
+				break;
+			case SCENE_LOAD_FLAG_FREEZE_RENDERING:
+				freeze_rendering = true;
+				sceneLoadFlag = SCENE_LOAD_FLAG_NONE;
+				break;
+			case SCENE_LOAD_FLAG_RESIZE:
+				resize_requested = true;
+				sceneLoadFlag = SCENE_LOAD_FLAG_NONE;
+				break;
+			case SCENE_LOAD_FLAG_RELOAD:
+				UnloadScene();
+				LoadScene(engineUIState.loadedPath);
+				sceneLoadFlag = SCENE_LOAD_FLAG_NONE;
+				break;
+			default:
+				break;
+		}
+		if (scene_clear_requested){
+			UnloadScene();
+			scene_clear_requested = false;
+		}
 		if (freeze_rendering) {
 			//throttle the speed to avoid the endless spinning
 			std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -494,21 +525,8 @@ void VulkanEngine::run()
 
 		ImGui::NewFrame();
 
-		if (ImGui::Begin("background")) {
-			
-			ImGui::SliderFloat("Render Scale",&renderScale, 0.3f, 1.f);
-
-			ComputeEffect& selected = backgroundEffects[currentBackgroundEffect];
-
-			ImGui::Text("Selected effect: ", selected.name);
-
-			ImGui::SliderInt("Effect Index", &currentBackgroundEffect,0, backgroundEffects.size() - 1);
-
-			ImGui::InputFloat4("data1",(float*)& selected.data.data1);
-			ImGui::InputFloat4("data2",(float*)& selected.data.data2);
-			ImGui::InputFloat4("data3",(float*)& selected.data.data3);
-			ImGui::InputFloat4("data4",(float*)& selected.data.data4);
-
+		if (ImGui::Begin("Load Scene")) {
+			VulkanEngineUI::RenderVulkanEngineUI(&engineUIState, this);
 			ImGui::End();
 		}
 
