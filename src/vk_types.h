@@ -124,7 +124,8 @@ struct GPUModelBuffers {
 
 // push constants for our mesh object draws
 struct GPUDrawPushConstants {
-    glm::mat4 worldMatrix;
+    glm::mat4 viewProjMatrix;
+    glm::vec4 lightDirection;
     // glm::vec3 viewPos;
 };
 

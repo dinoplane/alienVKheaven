@@ -528,6 +528,37 @@ void VulkanEngine::InitDescriptors()
 
 
 
+
+
+	DescriptorLayoutBuilder builder;
+	builder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+	_gpuSceneDataDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT);
+	_gpuSceneDataDescriptors = globalDescriptorAllocator.allocate(_device, _gpuSceneDataDescriptorLayout);
+	_gpuSceneDataBuffer = create_buffer(sizeof(GPUSceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT , VMA_MEMORY_USAGE_GPU_ONLY);
+	
+	{
+		DescriptorWriter writer;
+		writer.write_buffer(0, _gpuSceneDataBuffer.buffer, 
+			sizeof(GPUSceneData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		writer.update_set(_device, _gpuSceneDataDescriptors);
+	}
+
+	
+	// builder.clear();
+	// builder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+	// _lightingDataDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_COMPUTE_BIT);
+
+	builder.clear();
+	builder.add_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+	_singleImageDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_FRAGMENT_BIT);
+
+	_mainDeletionQueue.push_function([&]() {
+		destroy_buffer(_gpuSceneDataBuffer);
+		vkDestroyDescriptorSetLayout(_device, _gpuSceneDataDescriptorLayout, nullptr);
+		vkDestroyDescriptorSetLayout(_device, _singleImageDescriptorLayout, nullptr);
+	});
+
+
 	for (int i = 0; i < FRAME_OVERLAP; i++) {
 		// create a descriptor pool
 		std::vector<DescriptorAllocator::PoolSizeRatio> frame_sizes = { 
@@ -539,25 +570,15 @@ void VulkanEngine::InitDescriptors()
 
 		_frames[i]._frameDescriptors = DescriptorAllocator{};
 		_frames[i]._frameDescriptors.init(_device, 1000, frame_sizes);
+		_frames[i]._gpuSceneDataBuffer = create_buffer(sizeof(GPUSceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+		
 	
 		_mainDeletionQueue.push_function([&, i]() {
+			destroy_buffer(_frames[i]._gpuSceneDataBuffer);
 			_frames[i]._frameDescriptors.destroy_pools(_device);
 		});
 	}
-
-
-	DescriptorLayoutBuilder builder;
-	builder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-	_gpuSceneDataDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
-
-	builder.clear();
-	builder.add_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-	_singleImageDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_FRAGMENT_BIT);
-
-	_mainDeletionQueue.push_function([&]() {
-		vkDestroyDescriptorSetLayout(_device, _gpuSceneDataDescriptorLayout, nullptr);
-		vkDestroyDescriptorSetLayout(_device, _singleImageDescriptorLayout, nullptr);
-	});
 
 
 }
@@ -658,21 +679,21 @@ void VulkanEngine::InitGraphicsPipelines()
 		fmt::print("Triangle vertex shader succesfully loaded \n");
 	}
 
-	VkPushConstantRange bufferRange{};
-	bufferRange.offset = 0;
-	bufferRange.size = sizeof(GPUDrawPushConstants);
-	bufferRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	// VkPushConstantRange bufferRange{};
+	// bufferRange.offset = 0;
+	// bufferRange.size = sizeof(GPUDrawPushConstants);
+	// bufferRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
 
 	std::vector<VkDescriptorSetLayout> tmpLayoutVec;
+	tmpLayoutVec.push_back(_gpuSceneDataDescriptorLayout);
 	tmpLayoutVec.push_back(_vertexDescriptorLayout);
 	tmpLayoutVec.push_back(_geometryPassDescriptorLayout);
-	// tmpLayoutVec.push_back(_deferredPassDescriptorLayout);
 	tmpLayoutVec.push_back(_texturesDescriptorLayout);
 
 
 	VkPipelineLayoutCreateInfo pipeline_layout_info = vkinit::pipeline_layout_create_info();
-	pipeline_layout_info.pPushConstantRanges = &bufferRange;
-	pipeline_layout_info.pushConstantRangeCount = 1;
+	pipeline_layout_info.pPushConstantRanges = nullptr;
+	pipeline_layout_info.pushConstantRangeCount = 0;
 	pipeline_layout_info.pSetLayouts = tmpLayoutVec.data();
 	pipeline_layout_info.setLayoutCount = tmpLayoutVec.size();
 	VK_CHECK(vkCreatePipelineLayout(_device, &pipeline_layout_info, nullptr, &_geometryPassPipelineLayout));
@@ -713,26 +734,21 @@ void VulkanEngine::InitGraphicsPipelines()
 	// TODO Create Pipeline for Post Processing Pass
 	// TODO Abstract compute pipeline creation
 
-	std::vector<VkDescriptorSetLayout> lightingDescriptorLayouts = { _deferredPassDescriptorLayout, _drawImageDescriptorLayout };
+	std::vector<VkDescriptorSetLayout> lightingDescriptorLayouts = { _gpuSceneDataDescriptorLayout, _deferredPassDescriptorLayout, _drawImageDescriptorLayout };
 	VkPipelineLayoutCreateInfo computeLayout{};
 	computeLayout.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	computeLayout.pNext = nullptr;
 	computeLayout.pSetLayouts = lightingDescriptorLayouts.data();
 	computeLayout.setLayoutCount = lightingDescriptorLayouts.size();
-
-	// Add light information to the pipeline
-	// a buffer of light data!
-
-	VkPushConstantRange pushConstant{};
-	pushConstant.offset = 0;
-	pushConstant.size = 0;
-	pushConstant.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
 	computeLayout.pPushConstantRanges = nullptr;
 	computeLayout.pushConstantRangeCount = 0;
 
 	VK_CHECK(vkCreatePipelineLayout(_device, &computeLayout, nullptr, &_lightingPassPipelineLayout));
 		
+
+	// Add light information to the pipeline
+	// a buffer of light data!
+
 	VkShaderModule lightingShader;
 	if (!vkutil::load_shader_module("../shaders/lighting.comp.spv", _device, &lightingShader)) {
 		std::cout << "Error when building the compute shader" << std::endl;

@@ -7,9 +7,9 @@
 }
 {
 "classname" "model"
-"origin" "0 0 0"
+"origin" "0 -2.3 0"
 "angles" "0 0 0"
-"scale" "10 3 10"
+"scale" "10 10 10"
 "path" "../assets/models//table/scene.gltf"
 }
 {

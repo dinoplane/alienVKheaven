@@ -40,10 +40,13 @@ constexpr bool bUseValidationLayers = true;
 struct VulkanEngineUIState {
 	std::string loadedPath;
 	std::string status;
+	float theta = 0.0f;
+	float phi = 0.0f;
 };
 
 namespace VulkanEngineUI {
 	void RenderVulkanEngineUI(VulkanEngineUIState* engineUIState, VulkanEngine* engine);
+	void RenderGlobalParamUI(VulkanEngineUIState* engineUIState, VulkanEngine* engine);
 }
 
 struct DeletionQueue
@@ -73,6 +76,8 @@ struct FrameData {
 
 	DeletionQueue _deletionQueue;
 	DescriptorAllocator _frameDescriptors;
+
+	AllocatedBuffer _gpuSceneDataBuffer;
 };
 
 
@@ -93,13 +98,14 @@ struct ComputeEffect {
 };
 
 struct GPUSceneData {
-    glm::mat4 view;
-    glm::mat4 proj;
-    glm::mat4 viewproj;
-    glm::vec4 ambientColor;
-    glm::vec4 sunlightDirection; // w for sun power
-    glm::vec4 sunlightColor;
+    glm::mat4 viewProjMatrix;
+	glm::vec4 lightDirection; // remove later
 };
+
+// struct LightingData {
+// 	// glm::vec4 lightColor;
+// 	// glm::vec4 ambientColor;
+// };
 
 
 
@@ -153,9 +159,6 @@ public:
 	VkPipeline _postProcessPassPipeline;
 
 
-	VkDescriptorSetLayout _gpuSceneDataDescriptorLayout;
-	VkDescriptorSetLayout _singleImageDescriptorLayout;
-
 
 	// Swapchain
 	std::vector<VkFramebuffer> _framebuffers;
@@ -166,6 +169,7 @@ public:
 	//draw resources
 	AllocatedImage _drawImage;
 	AllocatedImage _depthImage;
+	AllocatedBuffer _gpuSceneDataBuffer;
 
 	// Deferred Pass Resources
 	AllocatedImage _positionImage;
@@ -175,7 +179,14 @@ public:
 
 	DescriptorAllocator globalDescriptorAllocator;
 
+	// Uniform Layouts
+	VkDescriptorSetLayout _gpuSceneDataDescriptorLayout;
+	VkDescriptorSet _gpuSceneDataDescriptors;
 
+	VkDescriptorSetLayout _singleImageDescriptorLayout;
+
+	VkDescriptorSetLayout _lightingDescriptorLayout;
+	VkDescriptorSet _lightingDescriptors;
 
 	// DescriptorSets
 	VkDescriptorSetLayout _vertexDescriptorLayout;
@@ -229,7 +240,7 @@ public:
 	void LoadScene(const std::string& filePath);
 	void UnloadScene();
 	
-	GPUSceneData sceneData;
+	GPUSceneData sceneUniformData;
 
 	// Camera Data
 	Camera _camera;

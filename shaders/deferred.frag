@@ -24,12 +24,12 @@ struct Material {
     uint flags;
 };
 
-layout (set = 1, binding = 3) readonly buffer MaterialBuffer{ 
+layout (set = 2, binding = 3) readonly buffer MaterialBuffer{ 
     Material materials[];
 } materialData;
 
 
-layout(set = 2, binding = 0) uniform sampler2D textures[];
+layout(set = 3, binding = 0) uniform sampler2D textures[];
 
 
 float rand(vec2 co){

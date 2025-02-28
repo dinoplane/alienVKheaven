@@ -103,7 +103,7 @@ void VulkanEngine::draw()
 	VK_CHECK(vkWaitForFences(_device, 1, &get_current_frame()._renderFence, true, 1000000000));
 
 	get_current_frame()._deletionQueue.flush();
-	get_current_frame()._frameDescriptors.clear_pools(_device);
+	// get_current_frame()._frameDescriptors.clear_pools(_device);
 
 	//request image from the swapchain
 	uint32_t swapchainImageIndex;
@@ -253,6 +253,19 @@ void VulkanEngine::DrawBackground(VkCommandBuffer cmd)
 
 void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
 {
+	//write the buffer
+	void* sceneMappedPtr;
+	vmaMapMemory(_allocator, get_current_frame()._gpuSceneDataBuffer.allocation, &sceneMappedPtr);
+	memcpy(sceneMappedPtr, &sceneUniformData, sizeof(GPUSceneData));
+	vmaUnmapMemory(_allocator,  get_current_frame()._gpuSceneDataBuffer.allocation);
+
+	VkBufferCopy copy{};
+	copy.dstOffset = 0;
+	copy.srcOffset = 0;
+	copy.size = sizeof(GPUSceneData);
+
+	vkCmdCopyBuffer(cmd, get_current_frame()._gpuSceneDataBuffer.buffer, _gpuSceneDataBuffer.buffer, 1, &copy);
+
     //begin a render pass  connected to our draw image
 	// VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(_drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 	VkRenderingAttachmentInfo depthAttachment = vkinit::depth_attachment_info(_depthImage.imageView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
@@ -286,25 +299,12 @@ void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
 
 	vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-	//allocate a new uniform buffer for the scene data
-	AllocatedBuffer gpuSceneDataBuffer = create_buffer(sizeof(GPUSceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
-	//add it to the deletion queue of this frame so it gets deleted once its been used
-	get_current_frame()._deletionQueue.push_function([=, this]() {
-		destroy_buffer(gpuSceneDataBuffer);
-    });
 
-	//write the buffer
-	void* sceneUniformData;
-	vmaMapMemory(_allocator, gpuSceneDataBuffer.allocation, &sceneUniformData);
-	memcpy(sceneUniformData, &sceneData, sizeof(GPUSceneData));
-	vmaUnmapMemory(_allocator, gpuSceneDataBuffer.allocation);
-	//create a descriptor set that binds that buffer and update it
-	VkDescriptorSet globalDescriptor = get_current_frame()._frameDescriptors.allocate(_device, _gpuSceneDataDescriptorLayout);
 
-	DescriptorWriter writer;
-	writer.write_buffer(0, gpuSceneDataBuffer.buffer, sizeof(GPUSceneData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-	writer.update_set(_device, globalDescriptor);
+	// DescriptorWriter writer;
+	// writer.write_buffer(0, _gpuSceneDataBuffer.buffer, sizeof(GPUSceneData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+	// writer.update_set(_device, _gpuSceneDataDescriptors);
 
 	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _geometryPassPipeline);
 
@@ -317,10 +317,10 @@ void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
 	// 	writer.update_set(_device, imageSet);
 	// }
 	// bind buffers
-	
-	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _geometryPassPipelineLayout, 0, 1, &_vertexDescriptors, 0, nullptr);
-	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _geometryPassPipelineLayout, 1, 1, &_geometryPassDescriptors, 0, nullptr);
-	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _geometryPassPipelineLayout, 2, 1, &_texturesDescriptors, 0, nullptr);
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _geometryPassPipelineLayout, 0, 1, &_gpuSceneDataDescriptors, 0, nullptr);	
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _geometryPassPipelineLayout, 1, 1, &_vertexDescriptors, 0, nullptr);
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _geometryPassPipelineLayout, 2, 1, &_geometryPassDescriptors, 0, nullptr);
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _geometryPassPipelineLayout, 3, 1, &_texturesDescriptors, 0, nullptr);
 	
 	
 
@@ -332,10 +332,11 @@ void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
 	// // to opengl and gltf axis
 	// projection[1][1] *= -1;
 
-	GPUDrawPushConstants push_constants;
-	push_constants.worldMatrix = sceneData.viewproj;
+	// GPUDrawPushConstants push_constants;
+	// push_constants.viewProjMatrix = sceneUniformData.viewProjMatrix;
+	// push_constants.lightDirection = sceneUniformData.lightDirection;
 
-	vkCmdPushConstants(cmd, _geometryPassPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &push_constants);
+	// vkCmdPushConstants(cmd, _geometryPassPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(GPUDrawPushConstants), &push_constants);
 	
 	vkCmdBindIndexBuffer(cmd, scene->modelBuffers.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
@@ -352,11 +353,16 @@ void VulkanEngine::DrawLightingPass(VkCommandBuffer cmd)
 	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _lightingPassPipeline);	
 
 	// bind the descriptor set containing the draw image for the compute pipeline
-	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _lightingPassPipelineLayout, 0, 1, &_deferredPassDescriptors, 0, nullptr);
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _lightingPassPipelineLayout, 0, 1, &_gpuSceneDataDescriptors, 0, nullptr);	
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _lightingPassPipelineLayout, 1, 1, &_deferredPassDescriptors, 0, nullptr);
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _lightingPassPipelineLayout, 2, 1, &_drawImageDescriptors, 0, nullptr);
 
-	// bind the descriptor set containing the draw image for the compute pipeline
-	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _lightingPassPipelineLayout, 1, 1, &_drawImageDescriptors, 0, nullptr);
-
+	// TODO: lighting should have its own set of uniforms/push constants
+	// GPUDrawPushConstants push_constants;
+	// push_constants.viewProjMatrix = sceneUniformData.viewProjMatrix;
+	// push_constants.lightDirection = sceneUniformData.lightDirection;
+	
+	// vkCmdPushConstants(cmd, _lightingPassPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(GPUDrawPushConstants), &push_constants);
 
 	// execute the compute pipeline dispatch. We are using 16x16 workgroup size so we need to divide by it
 	vkCmdDispatch(cmd, std::ceil(_drawExtent.width / 16.0), std::ceil(_drawExtent.height / 16.0), 1);
@@ -447,9 +453,7 @@ void VulkanEngine::UpdateScene()
     // to opengl and gltf axis
     projection[1][1] *= -1;
 
-    sceneData.view = view;
-    sceneData.proj = projection;
-    sceneData.viewproj = projection * view;
+    sceneUniformData.viewProjMatrix = projection * view;
 }
 
 
@@ -525,8 +529,11 @@ void VulkanEngine::run()
 
 		ImGui::NewFrame();
 
-		if (ImGui::Begin("Load Scene")) {
+		if (ImGui::Begin("Options")) {
+
 			VulkanEngineUI::RenderVulkanEngineUI(&engineUIState, this);
+			VulkanEngineUI::RenderGlobalParamUI(&engineUIState, this);
+			
 			ImGui::End();
 		}
 

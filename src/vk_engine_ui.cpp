@@ -1,11 +1,14 @@
 
 #include <vk_engine.h>
 #include <fmt/core.h>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/string_cast.hpp>
 
 #include <nfd.h>
 
 
 void VulkanEngineUI::RenderVulkanEngineUI(VulkanEngineUIState* engineUIState, VulkanEngine* engine){
+    ImGui::SeparatorText("Scene");
     ImGui::Text(engineUIState->status.c_str());
     if (ImGui::Button("Load Scene")) {
         // Open a dialog
@@ -37,4 +40,36 @@ void VulkanEngineUI::RenderVulkanEngineUI(VulkanEngineUIState* engineUIState, Vu
         engine->scene_clear_requested = true;
         (*engineUIState).status = "Loaded Scene: None\n";
     }
+}
+
+
+void VulkanEngineUI::RenderGlobalParamUI(VulkanEngineUIState* engineUIState, VulkanEngine* engine){
+    
+    ImGui::SeparatorText("Global Parameters");
+    ImGui::Text("Light Direction");
+    if (ImGui::SliderFloat("Theta", &engineUIState->theta, 0.0f, 360.0f)){
+        // fmt::print("Theta: {}\n", engineUIState->theta);
+        
+        engine->sceneUniformData.lightDirection.x = -cos(glm::radians(engineUIState->theta)) * cos(glm::radians(engineUIState->phi));
+        engine->sceneUniformData.lightDirection.z = -sin(glm::radians(engineUIState->theta)) * cos(glm::radians(engineUIState->phi));
+        engine->sceneUniformData.lightDirection.y = -sin(glm::radians(engineUIState->phi));
+    }
+    if (ImGui::SliderFloat("Phi", &engineUIState->phi, 0.0f, 360.0f)){
+        // fmt::print("Phi: {}\n", engineUIState->phi);
+        engine->sceneUniformData.lightDirection.x = -cos(glm::radians(engineUIState->theta)) * cos(glm::radians(engineUIState->phi));
+        engine->sceneUniformData.lightDirection.z = -sin(glm::radians(engineUIState->theta)) * cos(glm::radians(engineUIState->phi));
+        engine->sceneUniformData.lightDirection.y = -sin(glm::radians(engineUIState->phi));
+    }
+    ImGui::Text("%.2f, %.2f, %.2f", engine->sceneUniformData.lightDirection.x, engine->sceneUniformData.lightDirection.y, engine->sceneUniformData.lightDirection.z);
+    ImGui::Separator();
+
+    ImGui::SeparatorText("Camera Position");
+    ImGui::Text("%.2f, %.2f, %.2f", engine->_camera.position.x, engine->_camera.position.y, engine->_camera.position.z);
+
+    ImGui::SeparatorText("Camera Front");
+    ImGui::Text("%.2f, %.2f, %.2f", engine->_camera.front.x, engine->_camera.front.y, engine->_camera.front.z);
+
+    ImGui::SeparatorText("Frame Time");
+    ImGui::Text("%.5f", engine->_deltaTime);
+
 }

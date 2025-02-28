@@ -29,36 +29,42 @@ struct NodePrimitvePair {
     uint primitiveIdx;
 };
 
+layout(set = 0, binding = 0) readonly uniform GPUSceneBuffer{ 
+    mat4 clipFromWorld;
+    vec4 lightDir;
+} gpuSceneData;
 
 
-layout(set = 0, binding = 0) readonly buffer VertexBuffer{ 
+layout(set = 1, binding = 0) readonly buffer VertexBuffer{ 
 	Vertex vertices[];
 } vertexBuffer;
 
-layout(set = 1, binding = 0) readonly buffer NodeTransformsBuffer{ 
+layout(set = 2, binding = 0) readonly buffer NodeTransformsBuffer{ 
     mat4 matrices[];
 } nodeTransformsData;
 
 
-layout(set = 1, binding = 1) readonly buffer PrimitiveBuffer{ 
+layout(set = 2, binding = 1) readonly buffer PrimitiveBuffer{ 
     Primitive primitives[];
 } primitiveData;
 
-layout (set = 1, binding = 2) readonly buffer NodePrimitiveBuffer{ 
+layout (set = 2, binding = 2) readonly buffer NodePrimitiveBuffer{ 
     NodePrimitvePair nodePrimitives[];
 } nodePrimitiveData;
 
 
-layout (set = 1, binding = 4) readonly buffer InstanceDataBuffer{ 
+layout (set = 2, binding = 4) readonly buffer InstanceDataBuffer{ 
     mat4 modelMatrices[];
 } instanceData;
 
 
 //push constants block
-layout( push_constant ) uniform constants
-{	
-	mat4 render_matrix;
-} PushConstants;
+// layout( push_constant ) uniform constants
+// {	
+// 	mat4 clipFromWorld;
+//     vec4 lightDir;
+// } PushConstants;
+
 
 void main() 
 {	
@@ -75,14 +81,15 @@ void main()
     // mat4 nodeTransform = mat4(1.0f);
 
 	//output data
-	gl_Position = PushConstants.render_matrix * instanceData.modelMatrices[gl_InstanceIndex] * nodeTransform * vec4(v.position, 1.0f);
+    vec4 pos = instanceData.modelMatrices[gl_InstanceIndex] * nodeTransform * vec4(v.position, 1.0f);
+	gl_Position = gpuSceneData.clipFromWorld * pos;
 	outColor = v.normal.xyz;
 	outUV.x = v.uv_x;
 	outUV.y = v.uv_y;
-	outPosition = v.position;
-    // vec4 norm = instanceData.modelMatrices[gl_InstanceIndex] * vec4(v.normal, 0.0f);
-	// outNormal = norm.xyz;
-    outNormal = v.normal;
+	outPosition = pos.xyz;
+    vec4 norm = instanceData.modelMatrices[gl_InstanceIndex] * nodeTransform * vec4(v.normal, 0.0f);
+	outNormal = normalize(norm.xyz);
+    // outNormal = v.normal;
 
     outTextureIndex = primitive.textureIdx;
     outMaterialIndex = primitive.materialIdx;
