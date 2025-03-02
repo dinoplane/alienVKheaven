@@ -1,0 +1,16 @@
+{
+"classname" "skybox"
+"front" "../assets/skybox/room/pz.png"
+"back" "../assets/skybox/room/nz.png"
+"top" "../assets/skybox/room/py.png"
+"bottom" "../assets/skybox/room/ny.png"
+"right" "../assets/skybox/room/px.png"
+"left" "../assets/skybox/room/nx.png"
+}
+{
+"classname" "model"
+"origin" "0 1 0"
+"angles" "0 90 0"
+"scale" "0.5 0.5 0.5"
+"path" "../assets/models//fumo/scene.gltf"
+}

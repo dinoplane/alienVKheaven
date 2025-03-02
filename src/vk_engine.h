@@ -98,6 +98,9 @@ struct ComputeEffect {
 };
 
 struct GPUSceneData {
+	glm::mat4 inverseViewMatrix;
+	glm::mat4 inverseProjMatrix;
+	
     glm::mat4 viewProjMatrix;
 	glm::vec4 lightDirection; // remove later
 };
@@ -147,6 +150,9 @@ public:
 	int currentBackgroundEffect{ 1 };
 
 	// Graphics
+	VkPipelineLayout _skyBoxPassPipelineLayout;
+	VkPipeline _skyBoxPassPipeline;
+
 	VkPipelineLayout _geometryPassPipelineLayout;
 	VkPipeline _geometryPassPipeline;
 
@@ -158,7 +164,7 @@ public:
 	VkPipelineLayout _postProcessPassPipelineLayout;
 	VkPipeline _postProcessPassPipeline;
 
-
+	
 
 	// Swapchain
 	std::vector<VkFramebuffer> _framebuffers;
@@ -175,6 +181,16 @@ public:
 	AllocatedImage _positionImage;
 	AllocatedImage _normalImage;
 	AllocatedImage _albedoImage;
+
+	// Skybox Resources
+	AllocatedBuffer _skyBoxVertexBuffer;
+	AllocatedBuffer _skyBoxIndexBuffer;
+
+	// Lighting Pass Resources
+	// light volumes instanced
+	// AllocatedBuffer _lightingBuffer;
+
+
 	// AllocatedImage _materialImage;
 
 	DescriptorAllocator globalDescriptorAllocator;
@@ -192,6 +208,9 @@ public:
 	VkDescriptorSetLayout _vertexDescriptorLayout;
 	VkDescriptorSet _vertexDescriptors;
 	
+	VkDescriptorSetLayout _skyBoxPassDescriptorLayout;
+	VkDescriptorSet _skyBoxPassDescriptors;
+
 	VkDescriptorSetLayout _geometryPassDescriptorLayout;
 	VkDescriptorSet _geometryPassDescriptors;
 
@@ -293,6 +312,8 @@ public:
 	void destroy_buffer(const AllocatedBuffer& buffer);
 	AllocatedImage create_image(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
 	AllocatedImage create_image(void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
+	AllocatedImage create_cube_map(void** data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
+	
 	void destroy_image(const AllocatedImage& img);
 
 	private:
@@ -311,12 +332,16 @@ public:
 	void InitPipelines();
 	void InitBackgroundPipelines();
 	void InitGraphicsPipelines();
+	void InitGeometryPassPipeline();
+	void InitSkyBoxPassPipeline();
+	void InitLightingPassPipeline();
 
 
 	void InitImgui();
 	void InitDefaultData();
 
 	void DrawBackground(VkCommandBuffer cmd);
+	void DrawSkyBoxPass(VkCommandBuffer cmd);
 	void DrawGeometry(VkCommandBuffer cmd);
 	void DrawLightingPass(VkCommandBuffer cmd);
 	

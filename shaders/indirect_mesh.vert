@@ -30,10 +30,11 @@ struct NodePrimitvePair {
 };
 
 layout(set = 0, binding = 0) readonly uniform GPUSceneBuffer{ 
+    mat4 worldFromCamera;
+    mat4 cameraFromClip;
     mat4 clipFromWorld;
     vec4 lightDir;
 } gpuSceneData;
-
 
 layout(set = 1, binding = 0) readonly buffer VertexBuffer{ 
 	Vertex vertices[];

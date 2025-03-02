@@ -18,6 +18,9 @@ struct EntityData {
 struct SceneData {
     // std::set<std::string> entityKeys; // so i could conserve space here but uh... save for another day 
     std::vector<EntityData> entitiesData;
+    // std::vector<Light> lightsData;
+
+    std::string skyboxPath;
 
     // std::vector<Camera> cameraData;
 

@@ -3,6 +3,7 @@
 #include <vector>
 #include <unordered_map>
 #include <memory>
+#include <optional>
 #include <vk_loader.h>
 
 
@@ -12,6 +13,8 @@ class Scene {
         VulkanEngine* engine;
         std::shared_ptr<LoadedGLTF> modelData;
         GPUModelBuffers modelBuffers;
+
+        std::optional<AllocatedImage> skyBoxImages;
 
         void ClearAll();
 };

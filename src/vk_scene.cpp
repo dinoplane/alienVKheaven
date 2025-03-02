@@ -9,4 +9,7 @@ void Scene::ClearAll() {
         Loader::DestroyModelData(modelBuffers, engine);
         modelData->ClearAll();
     }
+    if (skyBoxImages.has_value()) {
+        engine->destroy_image(*skyBoxImages);
+    }
 }

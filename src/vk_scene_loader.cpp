@@ -6,6 +6,7 @@
 #include <string_view>
 #include <unordered_set>
 
+#include "stb_image.h"
 static glm::vec3 ParseVec3(const std::string& vec3Str)
 {
     glm::vec3 vec;
@@ -49,6 +50,19 @@ void SceneLoader::LoadScene(const SceneData& sceneData, Scene* scene, VulkanEngi
             case "model"_hash:
             {
                 modelToInstanceModelMatrices[entityData.kvps.at("path")].push_back(entityData.transform.GetModelMatrix());
+            } break;
+            case "skybox"_hash:
+            {
+                const char* imageKeys[] = {
+                    "front", "back", "top", "bottom", "left", "right"
+                };
+                std::vector<std::string> imagePaths;
+                for (int i = 0; i < 6; ++i){
+                    const std::string key = imageKeys[i];
+                    const std::string path = entityData.kvps.at(key);
+                    imagePaths.push_back(path);
+                }
+                scene->skyBoxImages = Loader::LoadCubeMap(imagePaths, engine);
             } break;
             // case "load"_hash:
             //     std::cout << "Loading data..." << std::endl;

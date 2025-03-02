@@ -87,6 +87,7 @@
         "xtree": "cpp",
         "xutility": "cpp",
         "expected": "cpp",
-        "stdfloat": "cpp"
+        "stdfloat": "cpp",
+        "unordered_set": "cpp"
     }
 }

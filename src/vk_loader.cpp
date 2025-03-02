@@ -680,3 +680,29 @@ void Loader::Clear(){
     creationParameters.clear();
     totalStagingBufferSize = 0;
 }
+
+
+AllocatedImage Loader::LoadCubeMap(const std::vector<std::string> paths, VulkanEngine* engine){
+   
+    unsigned char *textureData[6];
+    int width{ 0 };
+    int height{ 0 };
+    int nrChannels{ 0 };
+
+    for (int i = 0; i < 6; ++i){
+        textureData[i] = stbi_load(paths[i].c_str(), &width, &height, &nrChannels, 4); 
+        fmt::print("Loaded Image: {}\n", paths[i]);
+    }
+    VkExtent3D extent = {width, height, 1};
+    AllocatedImage outImage = engine->create_cube_map(
+        (void**) textureData,
+        extent,
+        VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false
+    );
+
+    for (int i = 0; i < 6; ++i){
+        stbi_image_free(textureData[i]);
+    }
+
+    return outImage;
+}

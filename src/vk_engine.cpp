@@ -130,6 +130,20 @@ void VulkanEngine::draw()
 	
 	VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
+	//write the buffer
+	void* sceneMappedPtr;
+	vmaMapMemory(_allocator, get_current_frame()._gpuSceneDataBuffer.allocation, &sceneMappedPtr);
+	memcpy(sceneMappedPtr, &sceneUniformData, sizeof(GPUSceneData));
+	vmaUnmapMemory(_allocator,  get_current_frame()._gpuSceneDataBuffer.allocation);
+
+	VkBufferCopy copy{};
+	copy.dstOffset = 0;
+	copy.srcOffset = 0;
+	copy.size = sizeof(GPUSceneData);
+
+	vkCmdCopyBuffer(cmd, get_current_frame()._gpuSceneDataBuffer.buffer, _gpuSceneDataBuffer.buffer, 1, &copy);
+
+
 	// transition our main draw image into general layout so we can write into it
 	// we will overwrite it all so we dont care about what was the older layout
 	vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
@@ -143,6 +157,13 @@ void VulkanEngine::draw()
 	vkCmdClearColorImage(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
 
 	if (isSceneLoaded){
+		if (scene->skyBoxImages.has_value()) {
+			vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+			DrawSkyBoxPass(cmd);
+			vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+		}
+		
+
 		vkutil::transition_image(cmd, _positionImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 		vkutil::transition_image(cmd, _normalImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 		vkutil::transition_image(cmd, _albedoImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
@@ -251,20 +272,77 @@ void VulkanEngine::DrawBackground(VkCommandBuffer cmd)
 	vkCmdDispatch(cmd, std::ceil(_drawExtent.width / 16.0), std::ceil(_drawExtent.height / 16.0), 1);
 }
 
+
+void VulkanEngine::DrawSkyBoxPass(VkCommandBuffer cmd){
+
+    //begin a render pass  connected to our draw image
+	VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(_drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+	VkRenderingInfo renderInfo = vkinit::rendering_info(_drawExtent, &colorAttachment, 1, nullptr);
+	vkCmdBeginRenderingKHR(cmd, &renderInfo);
+
+	//set dynamic viewport and scissor
+	VkViewport viewport = {};
+	viewport.x = 0;
+	viewport.y = 0;
+	viewport.width = _drawExtent.width;
+	viewport.height = _drawExtent.height;
+	viewport.minDepth = 0.f;
+	viewport.maxDepth = 1.f;
+
+	vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+	VkRect2D scissor = {};
+	scissor.offset.x = 0;
+	scissor.offset.y = 0;
+	scissor.extent.width = viewport.width;
+	scissor.extent.height = viewport.height;
+
+	vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+
+
+
+	// DescriptorWriter writer;
+	// writer.write_buffer(0, _gpuSceneDataBuffer.buffer, sizeof(GPUSceneData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+	// writer.update_set(_device, _gpuSceneDataDescriptors);
+
+	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _skyBoxPassPipeline);
+
+	//bind a texture
+	// VkDescriptorSet imageSet = get_current_frame()._frameDescriptors.allocate(_device, _singleImageDescriptorLayout);
+	// {
+	// 	DescriptorWriter writer;
+	// 	writer.write_image(0, _errorCheckerboardImage.imageView, _defaultSamplerNearest, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+
+	// 	writer.update_set(_device, imageSet);
+	// }
+	// bind buffers
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _skyBoxPassPipelineLayout, 0, 1, &_gpuSceneDataDescriptors, 0, nullptr);	
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _skyBoxPassPipelineLayout, 1, 1, &_skyBoxPassDescriptors, 0, nullptr);
+	
+
+	// glm::mat4 view = glm::translate(glm::vec3{ 0,0,-5 });
+	// // camera projection
+	// glm::mat4 projection = glm::perspective(glm::radians(70.f), (float)_drawExtent.width / (float)_drawExtent.height, 10000.f, 0.1f);
+
+	// // invert the Y direction on projection matrix so that we are more similar
+	// // to opengl and gltf axis
+	// projection[1][1] *= -1;
+
+	// GPUDrawPushConstants push_constants;
+	// push_constants.viewProjMatrix = sceneUniformData.viewProjMatrix;
+	// push_constants.lightDirection = sceneUniformData.lightDirection;
+
+	// vkCmdPushConstants(cmd, _geometryPassPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(GPUDrawPushConstants), &push_constants);
+	
+	vkCmdBindIndexBuffer(cmd, _skyBoxIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+	vkCmdDrawIndexed(cmd, 3, 1, 0, 0, 0);
+	vkCmdEndRenderingKHR(cmd);
+}
+
 void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
 {
-	//write the buffer
-	void* sceneMappedPtr;
-	vmaMapMemory(_allocator, get_current_frame()._gpuSceneDataBuffer.allocation, &sceneMappedPtr);
-	memcpy(sceneMappedPtr, &sceneUniformData, sizeof(GPUSceneData));
-	vmaUnmapMemory(_allocator,  get_current_frame()._gpuSceneDataBuffer.allocation);
-
-	VkBufferCopy copy{};
-	copy.dstOffset = 0;
-	copy.srcOffset = 0;
-	copy.size = sizeof(GPUSceneData);
-
-	vkCmdCopyBuffer(cmd, get_current_frame()._gpuSceneDataBuffer.buffer, _gpuSceneDataBuffer.buffer, 1, &copy);
 
     //begin a render pass  connected to our draw image
 	// VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(_drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -346,6 +424,13 @@ void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
 	vkCmdEndRenderingKHR(cmd);
 }
 
+// void VulkanEngine::DrawSkyBox(VkCommandBuffer cmd)
+// {
+// 	//begin a render pass  connected to our draw image
+// 	VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(_drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+// 	VkRenderingAttachmentInfo depthAttachment = vkinit::depth_attachment_info(_depthImage.imageView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+
+// }
 
 void VulkanEngine::DrawLightingPass(VkCommandBuffer cmd)
 {
@@ -446,13 +531,17 @@ void VulkanEngine::UpdateScene()
     // mainCamera.update();
 	_camera.updatePosition(_deltaTime);
     glm::mat4 view = _camera.getViewMatrix();
+	glm::mat4 invView = glm::inverse(view);
 
     // camera projection
     glm::mat4 projection = _camera.getProjMatrix();
+
+	projection[1][1] *= -1;
+	glm::mat4 invProj = glm::inverse(projection);
     // invert the Y direction on projection matrix so that we are more similar
     // to opengl and gltf axis
-    projection[1][1] *= -1;
-
+	sceneUniformData.inverseViewMatrix = invView;
+	sceneUniformData.inverseProjMatrix = invProj;
     sceneUniformData.viewProjMatrix = projection * view;
 }
 
@@ -534,9 +623,9 @@ void VulkanEngine::run()
 			VulkanEngineUI::RenderVulkanEngineUI(&engineUIState, this);
 			VulkanEngineUI::RenderGlobalParamUI(&engineUIState, this);
 			
-			ImGui::End();
 		}
 
+		ImGui::End();
 		ImGui::Render();
 		
 		draw();
@@ -719,6 +808,82 @@ AllocatedImage VulkanEngine::create_image(void* data, VkExtent3D size, VkFormat 
 
 	destroy_buffer(uploadbuffer);
 
+	return new_image;
+}
+
+AllocatedImage VulkanEngine::create_cube_map(void** data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped){
+	size_t data_size = size.depth * size.width * size.height * 4 * 6;
+	size_t face_size = data_size / 6;
+
+	AllocatedBuffer uploadbuffer = create_buffer(data_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+	void* imageBufferPtr;
+	vmaMapMemory(_allocator, uploadbuffer.allocation, &imageBufferPtr);
+	for (int i = 0; i < 6; i++){
+		memcpy((char*)imageBufferPtr + face_size * i, data[i], face_size);
+	}
+	vmaUnmapMemory(_allocator,  uploadbuffer.allocation);
+
+	usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+
+	AllocatedImage new_image;
+	new_image.imageFormat = format;
+	new_image.imageExtent = size;
+
+	VkImageCreateInfo img_info = vkinit::image_create_info(format, usage, size);
+	img_info.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+	img_info.arrayLayers = 6;
+
+	if (mipmapped) {
+		img_info.mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(size.width, size.height)))) + 1;
+	}
+
+	// always allocate images on dedicated GPU memory
+	VmaAllocationCreateInfo allocinfo = {};
+	allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+	allocinfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+	// allocate and create the image
+	VK_CHECK(vmaCreateImage(_allocator, &img_info, &allocinfo, &new_image.image, &new_image.allocation, nullptr));
+
+	// if the format is a depth format, we will need to have it use the correct
+	// aspect flag
+	VkImageAspectFlags aspectFlag = VK_IMAGE_ASPECT_COLOR_BIT;
+	if (format == VK_FORMAT_D32_SFLOAT) {
+		aspectFlag = VK_IMAGE_ASPECT_DEPTH_BIT;
+	}
+
+	// build a image-view for the image
+	VkImageViewCreateInfo view_info = vkinit::imageview_create_info(format, new_image.image, aspectFlag);
+	view_info.subresourceRange.levelCount = img_info.mipLevels;
+	view_info.subresourceRange.layerCount = 6;
+	view_info.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+
+	VK_CHECK(vkCreateImageView(_device, &view_info, nullptr, &new_image.imageView));
+
+	immediate_submit([&](VkCommandBuffer cmd) {
+		vkutil::transition_image(cmd, new_image.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		for (int i = 0; i < 6; i++){
+			VkBufferImageCopy copyRegion = {};
+			copyRegion.bufferOffset = face_size * i;
+			copyRegion.bufferRowLength = 0;
+			copyRegion.bufferImageHeight = 0;
+	
+			copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			copyRegion.imageSubresource.mipLevel = 0;
+			copyRegion.imageSubresource.baseArrayLayer = i;
+			copyRegion.imageSubresource.layerCount = 1;
+			copyRegion.imageExtent = size;
+	
+			// copy the buffer into the image
+			vkCmdCopyBufferToImage(cmd, uploadbuffer.buffer, new_image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
+				&copyRegion);
+		}
+		vkutil::transition_image(cmd, new_image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		});
+
+	destroy_buffer(uploadbuffer);
 	return new_image;
 }
 

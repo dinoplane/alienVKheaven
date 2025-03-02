@@ -3,28 +3,30 @@
 "origin" "0 1 0"
 "angles" "0 90 0"
 "scale" "0.5 0.5 0.5"
-"path" "../assets/models//fumo/scene.gltf"
+"path" "../assets/models/fumo/scene.gltf"
 }
 {
 "classname" "model"
 "origin" "0 -2.3 0"
 "angles" "0 0 0"
 "scale" "10 10 10"
-"path" "../assets/models//table/scene.gltf"
+"path" "../assets/models/table/scene.gltf"
 }
 {
-"classname" "model"
-"origin" "0 0 0"
-"angles" "0 0 0"
-"scale" "1 1 1"
-"path" "../assets/models//skyline/scene.gltf"
+"classname" "skybox"
+"front" "../assets/skybox/room/pz.png"
+"back" "../assets/skybox/room/nz.png"
+"top" "../assets/skybox/room/py.png"
+"bottom" "../assets/skybox/room/ny.png"
+"right" "../assets/skybox/room/px.png"
+"left" "../assets/skybox/room/nx.png"
 }
 {
 "classname" "model"
 "origin" "3.7 1.6 1.5"
 "angles" "0 0 0"
 "scale" "0.1 0.1 0.1"
-"path" "../assets/models//earth/scene.gltf"
+"path" "../assets/models/earth/scene.gltf"
 }
 {
 "classname" "model"

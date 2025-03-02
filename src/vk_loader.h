@@ -169,12 +169,12 @@ public:
     static bool LoadGltfImage(VulkanEngine* engine, const std::string filePath,  const fastgltf::Asset& gltfAsset, const fastgltf::Image& image, LoadedGLTF* outModel, AllocatedImage* outImage);
     static bool LoadGltfMaterial(const fastgltf::Asset& gltfAsset, const fastgltf::Material& material, LoadedMaterial* outMaterial);
 
-
     // static bool LoadGltfNode(const fastgltf::Asset& gltf, const fastgltf::Node& gltfNode, 
     //                             LoadedGLTF* outModel, Node* outNode);
 
     static GPUModelBuffers LoadGeometryFromGLTF(const LoadedGLTF& inModel, VulkanEngine* engine);
 
+    static AllocatedImage LoadCubeMap(const std::vector<std::string> paths, VulkanEngine* engine);
     static void PrintModelData(const LoadedGLTF& modelData);
     static void DestroyModelData(const GPUModelBuffers& inModelBuffers, VulkanEngine* engine);
 
