@@ -214,6 +214,9 @@ public:
 	VkDescriptorSetLayout _geometryPassDescriptorLayout;
 	VkDescriptorSet _geometryPassDescriptors;
 
+	VkDescriptorSetLayout _lightingDataDescriptorLayout;
+	VkDescriptorSet _lightingDataDescriptors;
+
 	VkDescriptorSetLayout _deferredPassDescriptorLayout;
 	VkDescriptorSet _deferredPassDescriptors;
 

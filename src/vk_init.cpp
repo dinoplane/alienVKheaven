@@ -412,6 +412,15 @@ void VulkanEngine::InitDescriptors()
     }
 	_geometryPassDescriptors = globalDescriptorAllocator.allocate(_device, _geometryPassDescriptorLayout);
 
+	{ // lighting data descriptors
+		DescriptorLayoutBuilder builder;
+		builder.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER); // light size0 buffer
+		builder.add_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER); // pointlight  buffer
+		
+		_lightingDataDescriptorLayout = builder.build(_device, VK_SHADER_STAGE_COMPUTE_BIT); // TODO: gonna need to change this later
+	}
+	_lightingDataDescriptors = globalDescriptorAllocator.allocate(_device, _lightingDataDescriptorLayout);
+
 	{ // deferred pass descriptors
 		DescriptorLayoutBuilder builder;
 		builder.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // geometry buffer
@@ -521,6 +530,7 @@ void VulkanEngine::InitDescriptors()
         vkDestroyDescriptorSetLayout(_device, _drawImageDescriptorLayout, nullptr);
 		vkDestroyDescriptorSetLayout(_device, _postProcessPassDescriptorLayout, nullptr);
 		vkDestroyDescriptorSetLayout(_device, _geometryPassDescriptorLayout, nullptr);
+		vkDestroyDescriptorSetLayout(_device, _lightingDataDescriptorLayout, nullptr);
 		vkDestroyDescriptorSetLayout(_device, _vertexDescriptorLayout, nullptr);
 		vkDestroyDescriptorSetLayout(_device, _deferredPassDescriptorLayout, nullptr);
 		// vkDestroyDescriptorSetLayout(_device, _uberShaderPassDescriptorLayout, nullptr);
@@ -807,10 +817,14 @@ void VulkanEngine::InitSkyBoxPassPipeline(){
 
 }
 
-
 void VulkanEngine::InitLightingPassPipeline(){
 	
-	std::vector<VkDescriptorSetLayout> lightingDescriptorLayouts = { _gpuSceneDataDescriptorLayout, _deferredPassDescriptorLayout, _drawImageDescriptorLayout };
+	std::vector<VkDescriptorSetLayout> lightingDescriptorLayouts = {
+		_gpuSceneDataDescriptorLayout,
+		_deferredPassDescriptorLayout,
+		_drawImageDescriptorLayout,
+		_lightingDataDescriptorLayout
+	};
 	VkPipelineLayoutCreateInfo computeLayout{};
 	computeLayout.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	computeLayout.pNext = nullptr;
@@ -1051,6 +1065,16 @@ void VulkanEngine::LoadScene(const std::string& filePath){
 	
 		}
 	}
+
+	{
+		DescriptorWriter writer;
+		writer.write_buffer(0, scene->lightSizeDataBuffer.buffer,
+			sizeof(LightBufferSizeData), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		writer.write_buffer(1, scene->pointLightBuffer.buffer,
+			scene->lightSizeData.numPointLights * sizeof(PointLightData), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		writer.update_set(_device, _lightingDataDescriptors);
+	}
+
 	isSceneLoaded = true;
 }
 

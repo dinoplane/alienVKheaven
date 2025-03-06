@@ -12,6 +12,7 @@ struct EntityData {
     std::string className;
     Transform transform;
     bool isInstance;
+    LightSceneData lightData;
     std::unordered_map<std::string, std::string> kvps;
 };
 

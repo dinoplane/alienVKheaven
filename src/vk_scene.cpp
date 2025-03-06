@@ -12,4 +12,7 @@ void Scene::ClearAll() {
     if (skyBoxImages.has_value()) {
         engine->destroy_image(*skyBoxImages);
     }
+
+    engine->destroy_buffer(pointLightBuffer);
+    engine->destroy_buffer(lightSizeDataBuffer);
 }

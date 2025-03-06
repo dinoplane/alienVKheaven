@@ -150,7 +150,7 @@ void VulkanEngine::draw()
 
 	VkClearColorValue clearValue;
 	// float flash = std::abs(std::sin(_frameNumber / 120.f));
-	clearValue = { { 0.0f, 0.0f, 0.0f, 1.0f } };
+	clearValue = { { 0.0f, 0.0f, 0.0f, 0.0f } };
 
 	VkImageSubresourceRange clearRange = vkinit::image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);
 
@@ -274,7 +274,6 @@ void VulkanEngine::DrawBackground(VkCommandBuffer cmd)
 
 
 void VulkanEngine::DrawSkyBoxPass(VkCommandBuffer cmd){
-
     //begin a render pass  connected to our draw image
 	VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(_drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
@@ -300,42 +299,11 @@ void VulkanEngine::DrawSkyBoxPass(VkCommandBuffer cmd){
 
 	vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-
-
-
-	// DescriptorWriter writer;
-	// writer.write_buffer(0, _gpuSceneDataBuffer.buffer, sizeof(GPUSceneData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-	// writer.update_set(_device, _gpuSceneDataDescriptors);
-
 	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _skyBoxPassPipeline);
 
-	//bind a texture
-	// VkDescriptorSet imageSet = get_current_frame()._frameDescriptors.allocate(_device, _singleImageDescriptorLayout);
-	// {
-	// 	DescriptorWriter writer;
-	// 	writer.write_image(0, _errorCheckerboardImage.imageView, _defaultSamplerNearest, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-
-	// 	writer.update_set(_device, imageSet);
-	// }
-	// bind buffers
 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _skyBoxPassPipelineLayout, 0, 1, &_gpuSceneDataDescriptors, 0, nullptr);	
 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _skyBoxPassPipelineLayout, 1, 1, &_skyBoxPassDescriptors, 0, nullptr);
-	
 
-	// glm::mat4 view = glm::translate(glm::vec3{ 0,0,-5 });
-	// // camera projection
-	// glm::mat4 projection = glm::perspective(glm::radians(70.f), (float)_drawExtent.width / (float)_drawExtent.height, 10000.f, 0.1f);
-
-	// // invert the Y direction on projection matrix so that we are more similar
-	// // to opengl and gltf axis
-	// projection[1][1] *= -1;
-
-	// GPUDrawPushConstants push_constants;
-	// push_constants.viewProjMatrix = sceneUniformData.viewProjMatrix;
-	// push_constants.lightDirection = sceneUniformData.lightDirection;
-
-	// vkCmdPushConstants(cmd, _geometryPassPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(GPUDrawPushConstants), &push_constants);
-	
 	vkCmdBindIndexBuffer(cmd, _skyBoxIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 	vkCmdDrawIndexed(cmd, 3, 1, 0, 0, 0);
 	vkCmdEndRenderingKHR(cmd);
@@ -377,60 +345,18 @@ void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
 
 	vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-
-
-
-	// DescriptorWriter writer;
-	// writer.write_buffer(0, _gpuSceneDataBuffer.buffer, sizeof(GPUSceneData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-	// writer.update_set(_device, _gpuSceneDataDescriptors);
-
 	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _geometryPassPipeline);
 
-	//bind a texture
-	// VkDescriptorSet imageSet = get_current_frame()._frameDescriptors.allocate(_device, _singleImageDescriptorLayout);
-	// {
-	// 	DescriptorWriter writer;
-	// 	writer.write_image(0, _errorCheckerboardImage.imageView, _defaultSamplerNearest, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-
-	// 	writer.update_set(_device, imageSet);
-	// }
 	// bind buffers
 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _geometryPassPipelineLayout, 0, 1, &_gpuSceneDataDescriptors, 0, nullptr);	
 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _geometryPassPipelineLayout, 1, 1, &_vertexDescriptors, 0, nullptr);
 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _geometryPassPipelineLayout, 2, 1, &_geometryPassDescriptors, 0, nullptr);
 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _geometryPassPipelineLayout, 3, 1, &_texturesDescriptors, 0, nullptr);
-	
-	
 
-	// glm::mat4 view = glm::translate(glm::vec3{ 0,0,-5 });
-	// // camera projection
-	// glm::mat4 projection = glm::perspective(glm::radians(70.f), (float)_drawExtent.width / (float)_drawExtent.height, 10000.f, 0.1f);
-
-	// // invert the Y direction on projection matrix so that we are more similar
-	// // to opengl and gltf axis
-	// projection[1][1] *= -1;
-
-	// GPUDrawPushConstants push_constants;
-	// push_constants.viewProjMatrix = sceneUniformData.viewProjMatrix;
-	// push_constants.lightDirection = sceneUniformData.lightDirection;
-
-	// vkCmdPushConstants(cmd, _geometryPassPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(GPUDrawPushConstants), &push_constants);
-	
 	vkCmdBindIndexBuffer(cmd, scene->modelBuffers.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-
 	vkCmdDrawIndexedIndirect(cmd, scene->modelBuffers.drawCmdBuffer.buffer, 0, scene->modelData->drawCmdBufferVec.size(), sizeof(VkDrawIndexedIndirectCommand));
-
-
 	vkCmdEndRenderingKHR(cmd);
 }
-
-// void VulkanEngine::DrawSkyBox(VkCommandBuffer cmd)
-// {
-// 	//begin a render pass  connected to our draw image
-// 	VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(_drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-// 	VkRenderingAttachmentInfo depthAttachment = vkinit::depth_attachment_info(_depthImage.imageView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
-
-// }
 
 void VulkanEngine::DrawLightingPass(VkCommandBuffer cmd)
 {
@@ -441,13 +367,7 @@ void VulkanEngine::DrawLightingPass(VkCommandBuffer cmd)
 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _lightingPassPipelineLayout, 0, 1, &_gpuSceneDataDescriptors, 0, nullptr);	
 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _lightingPassPipelineLayout, 1, 1, &_deferredPassDescriptors, 0, nullptr);
 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _lightingPassPipelineLayout, 2, 1, &_drawImageDescriptors, 0, nullptr);
-
-	// TODO: lighting should have its own set of uniforms/push constants
-	// GPUDrawPushConstants push_constants;
-	// push_constants.viewProjMatrix = sceneUniformData.viewProjMatrix;
-	// push_constants.lightDirection = sceneUniformData.lightDirection;
-	
-	// vkCmdPushConstants(cmd, _lightingPassPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(GPUDrawPushConstants), &push_constants);
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _lightingPassPipelineLayout, 3, 1, &_lightingDataDescriptors, 0, nullptr);
 
 	// execute the compute pipeline dispatch. We are using 16x16 workgroup size so we need to divide by it
 	vkCmdDispatch(cmd, std::ceil(_drawExtent.width / 16.0), std::ceil(_drawExtent.height / 16.0), 1);
@@ -495,9 +415,6 @@ void VulkanEngine::HandleKeyboardInput(const SDL_KeyboardEvent& key)
 		}
 	}
 	
-	// fmt::print("Forward: {}, Backward: {}, Left: {}, Right: {}\n", buttonState[InputAction::FORWARD], buttonState[InputAction::BACKWARD], buttonState[InputAction::LEFT], buttonState[InputAction::RIGHT]);
-
-	
 	if (buttonState[InputAction::FORWARD])  { _camera.velocity.z = 1.0f; }
 	else if (buttonState[InputAction::BACKWARD]) { _camera.velocity.z = -1.0f; }
 	else { _camera.velocity.z = 0.0f; }
@@ -538,6 +455,7 @@ void VulkanEngine::UpdateScene()
 
 	projection[1][1] *= -1;
 	glm::mat4 invProj = glm::inverse(projection);
+
     // invert the Y direction on projection matrix so that we are more similar
     // to opengl and gltf axis
 	sceneUniformData.inverseViewMatrix = invView;
@@ -553,8 +471,6 @@ void VulkanEngine::run()
 	//main loop
 	while (!bQuit)
 	{
-
-        // auto start = std::chrono::system_clock::now();
 		//Handle events on queue
 		while (SDL_PollEvent(&e) != 0)
 		{
@@ -611,7 +527,6 @@ void VulkanEngine::run()
 			RecreateSwapchain();
 		}
 
-
 		// imgui new frame
 		ImGui_ImplVulkan_NewFrame();
 		ImGui_ImplSDL2_NewFrame();
@@ -619,10 +534,8 @@ void VulkanEngine::run()
 		ImGui::NewFrame();
 
 		if (ImGui::Begin("Options")) {
-
 			VulkanEngineUI::RenderVulkanEngineUI(&engineUIState, this);
 			VulkanEngineUI::RenderGlobalParamUI(&engineUIState, this);
-			
 		}
 
 		ImGui::End();
@@ -635,7 +548,6 @@ void VulkanEngine::run()
         
         _lastTimePoint = end;
         _frameTimer += _deltaTime;
-        // fmt::printf("%.2f, %.2f\n", _deltaTime, _frameTimer);
 	}
 }
 

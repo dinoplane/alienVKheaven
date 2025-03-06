@@ -42,6 +42,7 @@ void SceneLoader::LoadScene(const SceneData& sceneData, Scene* scene, VulkanEngi
     // Add entities as instances. 
 
     std::unordered_map<std::string, std::vector<glm::mat4>> modelToInstanceModelMatrices;
+    std::vector<PointLightData> pointLights;
     for (const EntityData& entityData : sceneData.entitiesData)
     {
         std::string classname = entityData.className;
@@ -64,6 +65,16 @@ void SceneLoader::LoadScene(const SceneData& sceneData, Scene* scene, VulkanEngi
                 }
                 scene->skyBoxImages = Loader::LoadCubeMap(imagePaths, engine);
             } break;
+            case "point_light"_hash:
+            {
+                PointLightData pointLight;
+                pointLight.position = entityData.transform.originVec;
+                pointLight.color = entityData.lightData.color;
+                pointLight.intensity = entityData.lightData.intensity;
+                pointLight.radius = entityData.lightData.radius;
+                pointLights.push_back(pointLight);
+            } break;
+
             // case "load"_hash:
             //     std::cout << "Loading data..." << std::endl;
             //     break;
@@ -77,6 +88,20 @@ void SceneLoader::LoadScene(const SceneData& sceneData, Scene* scene, VulkanEngi
     scene->engine = engine;
     scene->modelData = Loader::LoadGltfModel(engine, modelToInstanceModelMatrices).value();
     scene->modelBuffers = Loader::LoadGeometryFromGLTF(*scene->modelData.get() , engine);
+
+    scene->lightSizeData.numPointLights = pointLights.size();
+
+    Loader loader;
+    loader.Init(engine);
+    loader.AddBuffer(sizeof(PointLightData) * pointLights.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY, pointLights.data());
+
+    loader.AddBuffer(sizeof(LightBufferSizeData), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY, &scene->lightSizeData);
+
+    std::vector<AllocatedBuffer> buffers = loader.UploadBuffers();
+    scene->pointLightBuffer = buffers[0];
+    scene->lightSizeDataBuffer = buffers[1];
+    
+    // scene->pointLightBuffer = engine->create_buffer(sizeof(PointLightData) * pointLights.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 }
 
 
@@ -127,17 +152,39 @@ void SceneLoader::LoadSceneData(const std::string& scenePath, SceneData* sceneDa
             {
                 // TODO These should be done by type not key name
                 iss >> std::quoted(value);
-                if (key == "classname")
-                {
-                    data.className = value;
-                } else if (key == "origin")
-                {
-                    data.transform.SetPosition(ParseVec3(value));
-                } else if (key == "angles")
-                {
-                    data.transform.SetRotation(ParseVec3(value));
-                } else if (key == "scale"){
-                    data.transform.SetScale(ParseVec3(value));
+                switch (hash(key)) {
+                    case "classname"_hash:
+                    {
+                        data.className = value;
+                    } break;
+                    case "origin"_hash:
+                    {
+                        data.transform.SetPosition(ParseVec3(value));
+                    } break;
+                    case "angles"_hash:
+                    {
+                        data.transform.SetRotation(ParseVec3(value));
+                    } break;
+                    case "scale"_hash:
+                    {
+                        data.transform.SetScale(ParseVec3(value));
+                    } break;
+                    case "radius"_hash:
+                    {
+                        data.lightData.radius = std::stof(value);
+                    } break;
+                    case "color"_hash:
+                    {
+                        data.lightData.color = ParseVec3(value);
+                    } break;
+                    case "intensity"_hash:
+                    {
+                        data.lightData.intensity = std::stof(value);
+                    } break;
+                    case "direction"_hash:
+                    {
+                        data.lightData.direction = ParseVec3(value);
+                    } break;
                 }
                 data.kvps[key] = value;
             // if (token == "entity")

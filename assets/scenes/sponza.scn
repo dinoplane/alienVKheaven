@@ -5,3 +5,26 @@
 "scale" "1 1 1"
 "path" "../assets/models/sponza/glTF/Sponza.gltf"
 }
+{
+"classname" "point_light"
+"origin" "-3 5 0"
+"radius" "3.0"
+"color" "1.0 1.0 1.0"
+"intensity" "1.0"
+}
+{
+"classname" "point_light"
+"origin" "3 5 0"
+"radius" "3.0"
+"color" "1.0 1.0 1.0"
+"intensity" "1.0"
+}
+{
+"classname" "skybox"
+"front" "../assets/skybox/room/pz.png"
+"back" "../assets/skybox/room/nz.png"
+"top" "../assets/skybox/room/py.png"
+"bottom" "../assets/skybox/room/ny.png"
+"right" "../assets/skybox/room/px.png"
+"left" "../assets/skybox/room/nx.png"
+}

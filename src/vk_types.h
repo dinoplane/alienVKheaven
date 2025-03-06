@@ -74,6 +74,10 @@ struct Vertex {
 
 struct Transform 
 {
+    glm::vec3 originVec;
+    glm::vec3 anglesVec;
+    glm::vec3 scaleVec;
+
     glm::mat4 translation;
     glm::mat4 rotation;
     glm::mat4 scale;
@@ -85,19 +89,22 @@ struct Transform
 
     void SetPosition(const glm::vec3& pos)
     {
+        originVec = pos;
         translation = glm::translate(glm::mat4(1.0f), pos);
     }
     
     void SetRotation(const glm::vec3& rot)
     {
+        anglesVec = rot;
         rotation = glm::rotate(glm::mat4(1.0f), glm::radians(rot.x), glm::vec3(1.0f, 0.0f, 0.0f));
         rotation = glm::rotate(rotation, glm::radians(rot.y), glm::vec3(0.0f, 1.0f, 0.0f));
         rotation = glm::rotate(rotation, glm::radians(rot.z), glm::vec3(0.0f, 0.0f, 1.0f));
     }
 
-    void SetScale(const glm::vec3& scaleVec)
+    void SetScale(const glm::vec3& scl)
     {
-        scale = glm::scale(glm::mat4(1.0f), scaleVec);
+        scaleVec = scl;
+        scale = glm::scale(glm::mat4(1.0f), scl);
     }
 };
 
@@ -212,4 +219,38 @@ struct Frustum
             farFace.ToGPUPlane(), nearFace.ToGPUPlane() };
     }
 };
+
+struct LightSceneData
+{
+    glm::vec3 position;
+    float radius;
+    glm::vec3 color;
+    float intensity;
+    glm::vec3 direction;
+};
+
+struct PointLightData
+{
+    glm::vec3 position;
+    float radius;
+    glm::vec3 color;
+    float intensity;
+};
+
+
+struct DirectionalLightData
+{
+    glm::vec3 direction;
+    float intensity;
+    glm::vec3 color;
+    float padding;
+};
+
+struct LightBufferSizeData {
+    uint32_t numPointLights {0};
+    uint32_t numDirectionalLights {0};
+    uint32_t numSpotLights {0};
+    uint32_t numAreaLights {0};
+};
+
 

@@ -14,6 +14,11 @@ class Scene {
         std::shared_ptr<LoadedGLTF> modelData;
         GPUModelBuffers modelBuffers;
 
+        LightBufferSizeData lightSizeData;
+
+        AllocatedBuffer pointLightBuffer;
+        AllocatedBuffer lightSizeDataBuffer;
+
         std::optional<AllocatedImage> skyBoxImages;
 
         void ClearAll();
