@@ -461,6 +461,7 @@ void VulkanEngine::UpdateScene()
 	sceneUniformData.inverseViewMatrix = invView;
 	sceneUniformData.inverseProjMatrix = invProj;
     sceneUniformData.viewProjMatrix = projection * view;
+	sceneUniformData.eyePosition = glm::vec4(_camera.position, 1.0f);
 }
 
 

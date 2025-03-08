@@ -7,6 +7,7 @@ layout(set = 0, binding = 0) readonly uniform GPUSceneBuffer{
     mat4 cameraFromClip;
     mat4 clipFromWorld;
     vec4 lightDir;
+    vec4 eyePos;
 } gpuSceneData;
 
 
@@ -40,28 +41,37 @@ void main()
     vec4 position = imageLoad(positionImage, texelCoord);
     vec3 normal = normalize(imageLoad(normalImage, texelCoord).xyz);
     vec4 albedo = imageLoad(albedoImage, texelCoord);
+    vec3 viewVec = normalize(gpuSceneData.eyePos.xyz - position.xyz);
+    
 
     if(texelCoord.x < size.x && texelCoord.y < size.y && position.w > 0.0)
     {
-        vec3 diffuse = albedo.rgb * 0.1;
-        // vec3 diffuse = vec3(0.0);
+        vec3 unlit = albedo.rgb * 0.1;
+
+        vec3 outColor = unlit;
         for (int i = 0; i < pointLightBufferLength; i++)
         {
             PointLight light = pointLights[i];
-            vec3 lightDir = normalize(light.position - position.xyz);
-            float dist = length(light.position - position.xyz);
+            vec3 distVec = light.position - position.xyz;
+            float dist = sqrt(dot(distVec, distVec));
+            vec3 lightDir = distVec / dist;
+
             if (dist > light.radius)
             {
                 continue;
             }
-            float diff = max(dot(lightDir, normal), 0.0);
-            diffuse += diff * albedo.rgb * light.color * light.intensity;
-            // diffuse = vec3(1.0, 0.0, 0.0); 
+            float c_light = light.radius*light.radius / (dist*dist + 0.001);
+            float f_window = pow(max(1 - pow((dist/light.radius), 4), 0.0), 2.0);
+
+            float NdL = max(dot(normal, lightDir), 0.0);
+            outColor +=  NdL * albedo.rgb * light.color * light.intensity * f_window * c_light;
+
+            // outColor = vec3(1.0, 0.0, 0.0); 
         }
         // TODO: Attneuate rthe light correctly, use the formula in rtr book
         // float diff = max(dot(gpuSceneData.lightDir.xyz, normal.xyz), 0.0);
-        // diffuse += diff * albedo.rgb;
-        imageStore(outputImage, texelCoord, vec4(diffuse, 1.0));
+        // outColor += diff * albedo.rgb;
+        imageStore(outputImage, texelCoord, vec4(outColor, 1.0));
     }
     
 }

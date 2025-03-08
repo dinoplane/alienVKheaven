@@ -40,8 +40,8 @@ constexpr bool bUseValidationLayers = true;
 struct VulkanEngineUIState {
 	std::string loadedPath;
 	std::string status;
-	float theta = 0.0f;
-	float phi = 0.0f;
+	float theta {0.0f};
+	float phi {0.0f};
 };
 
 namespace VulkanEngineUI {
@@ -103,6 +103,7 @@ struct GPUSceneData {
 	
     glm::mat4 viewProjMatrix;
 	glm::vec4 lightDirection; // remove later
+	glm::vec4 eyePosition;
 };
 
 // struct LightingData {

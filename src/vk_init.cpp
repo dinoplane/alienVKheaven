@@ -1001,6 +1001,11 @@ void VulkanEngine::InitDefaultData()
 		writer.update_set(_device, _skyBoxPassDescriptors);
 	}
 
+	sceneUniformData.lightDirection = glm::vec4(
+		-cos(glm::radians(engineUIState.theta)) * cos(glm::radians(engineUIState.phi)),
+		-sin(glm::radians(engineUIState.phi)),
+		-sin(glm::radians(engineUIState.theta)) * cos(glm::radians(engineUIState.phi)), 0.0f);
+
 	_mainDeletionQueue.push_function([&]() {
 		destroy_buffer(_skyBoxVertexBuffer);
 		destroy_buffer(_skyBoxIndexBuffer);
