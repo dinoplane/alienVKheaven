@@ -6,7 +6,6 @@
 
 #include <nfd.h>
 
-
 void VulkanEngineUI::RenderVulkanEngineUI(VulkanEngineUIState* engineUIState, VulkanEngine* engine){
     ImGui::SeparatorText("Scene");
     ImGui::Text(engineUIState->status.c_str());
@@ -42,7 +41,6 @@ void VulkanEngineUI::RenderVulkanEngineUI(VulkanEngineUIState* engineUIState, Vu
     }
 }
 
-
 void VulkanEngineUI::RenderGlobalParamUI(VulkanEngineUIState* engineUIState, VulkanEngine* engine){
     
     ImGui::SeparatorText("Global Parameters");
@@ -71,5 +69,4 @@ void VulkanEngineUI::RenderGlobalParamUI(VulkanEngineUIState* engineUIState, Vul
 
     ImGui::SeparatorText("Frame Time");
     ImGui::Text("%.5f", engine->_deltaTime);
-
 }

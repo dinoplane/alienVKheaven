@@ -9,7 +9,6 @@ public:
    
     VkPipelineInputAssemblyStateCreateInfo _inputAssembly;
     VkPipelineRasterizationStateCreateInfo _rasterizer;
-
     
     VkPipelineMultisampleStateCreateInfo _multisampling;
     VkPipelineLayout _pipelineLayout;
@@ -17,27 +16,27 @@ public:
     VkPipelineRenderingCreateInfo _renderInfo;
     std::vector<VkFormat> _colorAttachmentFormatVec;
     std::vector<VkPipelineColorBlendAttachmentState> _colorBlendAttachmentVec;
-	PipelineBuilder(){ clear(); }
+	PipelineBuilder(){ Clear(); }
 
-    void clear();
+    void Clear();
 
-    VkPipeline build_pipeline(VkDevice device);
+    VkPipeline BuildPipeline(VkDevice device);
 //< pipeline
-    void set_shaders(VkShaderModule vertexShader, VkShaderModule fragmentShader);
-    void set_input_topology(VkPrimitiveTopology topology);
-    void set_polygon_mode(VkPolygonMode mode);
-    void set_cull_mode(VkCullModeFlags cullMode, VkFrontFace frontFace);
-    void set_multisampling_none();
-    static VkPipelineColorBlendAttachmentState disable_blending();
-    static VkPipelineColorBlendAttachmentState enable_blending_additive();
-    static VkPipelineColorBlendAttachmentState enable_blending_alphablend();
+    void SetShaders(VkShaderModule vertexShader, VkShaderModule fragmentShader);
+    void SetInputTopology(VkPrimitiveTopology topology);
+    void SetPolygonMode(VkPolygonMode mode);
+    void SetCullMode(VkCullModeFlags cullMode, VkFrontFace frontFace);
+    void SetMultiSamplingNone();
+    static VkPipelineColorBlendAttachmentState DisableBlending();
+    static VkPipelineColorBlendAttachmentState EnableBlendingAdditive();
+    static VkPipelineColorBlendAttachmentState EnableBlendingAlphablend();
 
-    void add_color_attachment(VkFormat format, VkPipelineColorBlendAttachmentState blendState);
-	void set_depth_format(VkFormat format);
-	void disable_depthtest();
-    void enable_depthtest(bool depthWriteEnable,VkCompareOp op);
+    void AddColorAttachment(VkFormat format, VkPipelineColorBlendAttachmentState blendState);
+	void SetDepthFormat(VkFormat format);
+	void DisableDepthTest();
+    void EnableDepthTest(bool depthWriteEnable,VkCompareOp op);
 };
 
-namespace vkutil {
-bool load_shader_module(const char* filePath, VkDevice device, VkShaderModule* outShaderModule);
+namespace VkUtil {
+    bool LoadShaderModule(const char* filePath, VkDevice device, VkShaderModule* outShaderModule);
 }

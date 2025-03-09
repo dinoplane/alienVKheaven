@@ -18,17 +18,13 @@ void Camera::moveBackward(float deltaTime){
     position -= front * deltaTime * speed;
 }
 
-
 void Camera::moveUp(float deltaTime){
     position += glm::vec3(0.0, 1.0, 0.0) * deltaTime * speed;
 }
+
 void Camera::moveDown(float deltaTime){
     position -= glm::vec3(0.0, 1.0, 0.0) * deltaTime * speed;
 }
-
-
-
-
 
 void Camera::processMouseMovement(float xoffset, float yoffset){
     float sensitivity = 0.1f;
@@ -45,6 +41,7 @@ void Camera::processMouseMovement(float xoffset, float yoffset){
 
     updateCameraVectors();
 }
+
 void Camera::updatePosition(float deltaTime){
     position += (velocity.z*front + velocity.x*right + velocity.y*glm::vec3(0.0f, 1.0f, 0.0f)) * deltaTime * speed;
 }

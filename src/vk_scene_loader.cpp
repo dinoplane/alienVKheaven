@@ -40,7 +40,6 @@ void SceneLoader::LoadScene(const SceneData& sceneData, Scene* scene, VulkanEngi
     }
 
     // Add entities as instances. 
-
     std::unordered_map<std::string, std::vector<glm::mat4>> modelToInstanceModelMatrices;
     std::vector<PointLightData> pointLights;
     for (const EntityData& entityData : sceneData.entitiesData)
@@ -52,6 +51,7 @@ void SceneLoader::LoadScene(const SceneData& sceneData, Scene* scene, VulkanEngi
             {
                 modelToInstanceModelMatrices[entityData.kvps.at("path")].push_back(entityData.transform.GetModelMatrix());
             } break;
+
             case "skybox"_hash:
             {
                 const char* imageKeys[] = {
@@ -63,8 +63,9 @@ void SceneLoader::LoadScene(const SceneData& sceneData, Scene* scene, VulkanEngi
                     const std::string path = entityData.kvps.at(key);
                     imagePaths.push_back(path);
                 }
-                scene->skyBoxImages = Loader::LoadCubeMap(imagePaths, engine);
+                scene->_skyBoxImage = Loader::LoadCubeMap(imagePaths, engine);
             } break;
+
             case "point_light"_hash:
             {
                 PointLightData pointLight;
@@ -75,35 +76,28 @@ void SceneLoader::LoadScene(const SceneData& sceneData, Scene* scene, VulkanEngi
                 pointLights.push_back(pointLight);
             } break;
 
-            // case "load"_hash:
-            //     std::cout << "Loading data..." << std::endl;
-            //     break;
-            // case "delete"_hash:
-            //     std::cout << "Deleting data..." << std::endl;
-            //     break;
             default:
                 fmt::print("Unknown class: {} ", classname);
         }
     }
-    scene->engine = engine;
-    scene->modelData = Loader::LoadGltfModel(engine, modelToInstanceModelMatrices).value();
-    scene->modelBuffers = Loader::LoadGeometryFromGLTF(*scene->modelData.get() , engine);
+    scene->_engine = engine;
+    scene->_modelData = Loader::LoadGltfModel(engine, modelToInstanceModelMatrices).value();
+    scene->_modelBuffers = Loader::LoadGeometryFromGLTF(*scene->_modelData.get() , engine);
 
-    scene->lightSizeData.numPointLights = pointLights.size();
+    scene->_lightSizeData.numPointLights = pointLights.size();
 
     Loader loader;
     loader.Init(engine);
     loader.AddBuffer(sizeof(PointLightData) * pointLights.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY, pointLights.data());
 
-    loader.AddBuffer(sizeof(LightBufferSizeData), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY, &scene->lightSizeData);
+    loader.AddBuffer(sizeof(LightBufferSizeData), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY, &scene->_lightSizeData);
 
     std::vector<AllocatedBuffer> buffers = loader.UploadBuffers();
-    scene->pointLightBuffer = buffers[0];
-    scene->lightSizeDataBuffer = buffers[1];
+    scene->_pointLightBuffer = buffers[0];
+    scene->_lightSizeDataBuffer = buffers[1];
     
-    // scene->pointLightBuffer = engine->create_buffer(sizeof(PointLightData) * pointLights.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+    // scene->pointLightBuffer = engine->CreateBuffer(sizeof(PointLightData) * pointLights.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 }
-
 
 void SceneLoader::LoadSceneData(const std::string& scenePath, SceneData* sceneData)
 {

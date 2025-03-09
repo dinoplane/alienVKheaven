@@ -16,7 +16,7 @@ VulkanEngine* loadedEngine = nullptr;
 
 VulkanEngine& VulkanEngine::Get() { return *loadedEngine; }
 
-void VulkanEngine::init()
+void VulkanEngine::Init()
 {
     // only one engine initialization is allowed with the application.
     assert(loadedEngine == nullptr);
@@ -58,7 +58,7 @@ void VulkanEngine::init()
     _isInitialized = true;
 }
 
-void VulkanEngine::cleanup()
+void VulkanEngine::Cleanup()
 {	
 	if (_isInitialized) {
 		
@@ -78,8 +78,8 @@ void VulkanEngine::cleanup()
 		}
 
 		//for (auto& mesh : testMeshes) {
-		//	destroy_buffer(mesh->meshBuffers.indexBuffer);
-		//	destroy_buffer(mesh->meshBuffers.vertexBuffer);
+		//	DestroyBuffer(mesh->meshBuffers.indexBuffer);
+		//	DestroyBuffer(mesh->meshBuffers.vertexBuffer);
 		//}
 		UnloadScene();
 
@@ -97,7 +97,7 @@ void VulkanEngine::cleanup()
 	}
 }
 
-void VulkanEngine::draw()
+void VulkanEngine::Draw()
 {
 //wait until the gpu has finished rendering the last frame. Timeout of 1 second
 	VK_CHECK(vkWaitForFences(_device, 1, &get_current_frame()._renderFence, true, 1000000000));
@@ -146,7 +146,7 @@ void VulkanEngine::draw()
 
 	// transition our main draw image into general layout so we can write into it
 	// we will overwrite it all so we dont care about what was the older layout
-	vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+	VkUtil::TransitionImage(cmd, _drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
 	VkClearColorValue clearValue;
 	// float flash = std::abs(std::sin(_frameNumber / 120.f));
@@ -157,52 +157,52 @@ void VulkanEngine::draw()
 	vkCmdClearColorImage(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
 
 	if (isSceneLoaded){
-		if (scene->skyBoxImages.has_value()) {
-			vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		if (scene->_skyBoxImage.has_value()) {
+			VkUtil::TransitionImage(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 			DrawSkyBoxPass(cmd);
-			vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+			VkUtil::TransitionImage(cmd, _drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
 		}
 		
 
-		vkutil::transition_image(cmd, _positionImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-		vkutil::transition_image(cmd, _normalImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-		vkutil::transition_image(cmd, _albedoImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+		VkUtil::TransitionImage(cmd, _positionImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+		VkUtil::TransitionImage(cmd, _normalImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+		VkUtil::TransitionImage(cmd, _albedoImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 	
 		vkCmdClearColorImage(cmd, _positionImage.image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
 		vkCmdClearColorImage(cmd, _normalImage.image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
 		vkCmdClearColorImage(cmd, _albedoImage.image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
 		
-		vkutil::transition_image(cmd, _positionImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-		vkutil::transition_image(cmd, _normalImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-		vkutil::transition_image(cmd, _albedoImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-		vkutil::transition_image(cmd, _depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+		VkUtil::TransitionImage(cmd, _positionImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		VkUtil::TransitionImage(cmd, _normalImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		VkUtil::TransitionImage(cmd, _albedoImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		VkUtil::TransitionImage(cmd, _depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 	
 		DrawGeometry(cmd);
 	
-		vkutil::transition_image(cmd, _positionImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
-		vkutil::transition_image(cmd, _normalImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
-		vkutil::transition_image(cmd, _albedoImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+		VkUtil::TransitionImage(cmd, _positionImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+		VkUtil::TransitionImage(cmd, _normalImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+		VkUtil::TransitionImage(cmd, _albedoImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
 	
 		DrawLightingPass(cmd);
 	}
 	
 	//transtion the draw image and the swapchain image into their correct transfer layouts
-	vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-	vkutil::transition_image(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	VkUtil::TransitionImage(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+	VkUtil::TransitionImage(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 	
 //> copyimage
 	// execute a copy from the draw image into the swapchain
-	vkutil::copy_image_to_image(cmd, _drawImage.image, _swapchainImages[swapchainImageIndex],_drawExtent ,_swapchainExtent);
+	VkUtil::CopyImageToImage(cmd, _drawImage.image, _swapchainImages[swapchainImageIndex],_drawExtent ,_swapchainExtent);
 //< copyimage
 
 	// set swapchain image layout to Attachment Optimal so we can draw it
-	vkutil::transition_image(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+	VkUtil::TransitionImage(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
 	//draw imgui into the swapchain image
 	DrawImgui(cmd, _swapchainImageViews[swapchainImageIndex]);
 
 	// set swapchain image layout to Present so we can draw it
-	vkutil::transition_image(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+	VkUtil::TransitionImage(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
 	//finalize the command buffer (we can no longer add commands, but it can now be executed)
 	VK_CHECK(vkEndCommandBuffer(cmd));
@@ -271,7 +271,6 @@ void VulkanEngine::DrawBackground(VkCommandBuffer cmd)
 	// execute the compute pipeline dispatch. We are using 16x16 workgroup size so we need to divide by it
 	vkCmdDispatch(cmd, std::ceil(_drawExtent.width / 16.0), std::ceil(_drawExtent.height / 16.0), 1);
 }
-
 
 void VulkanEngine::DrawSkyBoxPass(VkCommandBuffer cmd){
     //begin a render pass  connected to our draw image
@@ -353,8 +352,8 @@ void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _geometryPassPipelineLayout, 2, 1, &_geometryPassDescriptors, 0, nullptr);
 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _geometryPassPipelineLayout, 3, 1, &_texturesDescriptors, 0, nullptr);
 
-	vkCmdBindIndexBuffer(cmd, scene->modelBuffers.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-	vkCmdDrawIndexedIndirect(cmd, scene->modelBuffers.drawCmdBuffer.buffer, 0, scene->modelData->drawCmdBufferVec.size(), sizeof(VkDrawIndexedIndirectCommand));
+	vkCmdBindIndexBuffer(cmd, scene->_modelBuffers.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+	vkCmdDrawIndexedIndirect(cmd, scene->_modelBuffers.drawCmdBuffer.buffer, 0, scene->_modelData->drawCmdBufferVec.size(), sizeof(VkDrawIndexedIndirectCommand));
 	vkCmdEndRenderingKHR(cmd);
 }
 
@@ -372,7 +371,6 @@ void VulkanEngine::DrawLightingPass(VkCommandBuffer cmd)
 	// execute the compute pipeline dispatch. We are using 16x16 workgroup size so we need to divide by it
 	vkCmdDispatch(cmd, std::ceil(_drawExtent.width / 16.0), std::ceil(_drawExtent.height / 16.0), 1);
 }
-
 
 void VulkanEngine::HandleKeyboardInput(const SDL_KeyboardEvent& key)
 {
@@ -464,8 +462,7 @@ void VulkanEngine::UpdateScene()
 	sceneUniformData.eyePosition = glm::vec4(_camera.position, 1.0f);
 }
 
-
-void VulkanEngine::run()
+void VulkanEngine::Run()
 {
     SDL_Event e;
 	
@@ -542,7 +539,7 @@ void VulkanEngine::run()
 		ImGui::End();
 		ImGui::Render();
 		
-		draw();
+		Draw();
         auto end = std::chrono::high_resolution_clock::now();
 
         _deltaTime = std::chrono::duration<float>(end - _lastTimePoint).count();
@@ -552,7 +549,7 @@ void VulkanEngine::run()
 	}
 }
 
-void VulkanEngine::immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function)
+void VulkanEngine::ImmediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function)
 {
 	VK_CHECK(vkResetFences(_device, 1, &_immFence));
 	VK_CHECK(vkResetCommandBuffer(_immCommandBuffer, 0));
@@ -577,7 +574,7 @@ void VulkanEngine::immediate_submit(std::function<void(VkCommandBuffer cmd)>&& f
 	VK_CHECK(vkWaitForFences(_device, 1, &_immFence, true, 9999999999));
 }
 
-AllocatedBuffer VulkanEngine::create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage)
+AllocatedBuffer VulkanEngine::CreateBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage)
 {
 	// allocate buffer
 	VkBufferCreateInfo bufferInfo = {.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
@@ -598,62 +595,12 @@ AllocatedBuffer VulkanEngine::create_buffer(size_t allocSize, VkBufferUsageFlags
 	return newBuffer;
 }
 
-GPUMeshBuffers VulkanEngine::uploadMesh(std::span<uint32_t> indices, std::span<Vertex> vertices)
-{
-//> mesh_create_1
-	const size_t vertexBufferSize = vertices.size() * sizeof(Vertex);
-	const size_t indexBufferSize = indices.size() * sizeof(uint32_t);
-
-	GPUMeshBuffers newSurface;
-
-	//create vertex buffer
-	newSurface.vertexBuffer = create_buffer(vertexBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-		VMA_MEMORY_USAGE_GPU_ONLY);
-
-	//create index buffer
-	newSurface.indexBuffer = create_buffer(indexBufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-		VMA_MEMORY_USAGE_GPU_ONLY);
-
-//< mesh_create_1
-// 
-//> mesh_create_2
-	AllocatedBuffer staging = create_buffer(vertexBufferSize + indexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
-
-	void* data = staging.allocation->GetMappedData();
-
-	// copy vertex buffer
-	memcpy(data, vertices.data(), vertexBufferSize);
-	// copy index buffer
-	memcpy((char*)data + vertexBufferSize, indices.data(), indexBufferSize);
-
-	immediate_submit([&](VkCommandBuffer cmd) {
-		VkBufferCopy vertexCopy{ 0 };
-		vertexCopy.dstOffset = 0;
-		vertexCopy.srcOffset = 0;
-		vertexCopy.size = vertexBufferSize;
-
-		vkCmdCopyBuffer(cmd, staging.buffer, newSurface.vertexBuffer.buffer, 1, &vertexCopy);
-
-		VkBufferCopy indexCopy{ 0 };
-		indexCopy.dstOffset = 0;
-		indexCopy.srcOffset = vertexBufferSize;
-		indexCopy.size = indexBufferSize;
-
-		vkCmdCopyBuffer(cmd, staging.buffer, newSurface.indexBuffer.buffer, 1, &indexCopy);
-	});
-
-	destroy_buffer(staging);
-
-	return newSurface;
-//< mesh_create_2
-}
-
-void VulkanEngine::destroy_buffer(const AllocatedBuffer& buffer)
+void VulkanEngine::DestroyBuffer(const AllocatedBuffer& buffer)
 {
 	vmaDestroyBuffer(_allocator, buffer.buffer, buffer.allocation);
 }
 
-AllocatedImage VulkanEngine::create_image(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped)
+AllocatedImage VulkanEngine::CreateImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped)
 {
 	AllocatedImage newImage;
 	newImage.imageFormat = format;
@@ -688,17 +635,17 @@ AllocatedImage VulkanEngine::create_image(VkExtent3D size, VkFormat format, VkIm
 	return newImage;
 }
 
-AllocatedImage VulkanEngine::create_image(void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped)
+AllocatedImage VulkanEngine::CreateImage(void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped)
 {
 	size_t data_size = size.depth * size.width * size.height * 4;
-	AllocatedBuffer uploadbuffer = create_buffer(data_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+	AllocatedBuffer uploadbuffer = CreateBuffer(data_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
 	memcpy(uploadbuffer.info.pMappedData, data, data_size);
 
-	AllocatedImage new_image = create_image(size, format, usage | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, mipmapped);
+	AllocatedImage new_image = CreateImage(size, format, usage | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, mipmapped);
 
-	immediate_submit([&](VkCommandBuffer cmd) {
-		vkutil::transition_image(cmd, new_image.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	ImmediateSubmit([&](VkCommandBuffer cmd) {
+		VkUtil::TransitionImage(cmd, new_image.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
 		VkBufferImageCopy copyRegion = {};
 		copyRegion.bufferOffset = 0;
@@ -715,20 +662,20 @@ AllocatedImage VulkanEngine::create_image(void* data, VkExtent3D size, VkFormat 
 		vkCmdCopyBufferToImage(cmd, uploadbuffer.buffer, new_image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
 			&copyRegion);
 
-		vkutil::transition_image(cmd, new_image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		VkUtil::TransitionImage(cmd, new_image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		});
 
-	destroy_buffer(uploadbuffer);
+	DestroyBuffer(uploadbuffer);
 
 	return new_image;
 }
 
-AllocatedImage VulkanEngine::create_cube_map(void** data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped){
+AllocatedImage VulkanEngine::CreateCubeMap(void** data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped){
 	size_t data_size = size.depth * size.width * size.height * 4 * 6;
 	size_t face_size = data_size / 6;
 
-	AllocatedBuffer uploadbuffer = create_buffer(data_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+	AllocatedBuffer uploadbuffer = CreateBuffer(data_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
 	void* imageBufferPtr;
 	vmaMapMemory(_allocator, uploadbuffer.allocation, &imageBufferPtr);
@@ -774,8 +721,8 @@ AllocatedImage VulkanEngine::create_cube_map(void** data, VkExtent3D size, VkFor
 
 	VK_CHECK(vkCreateImageView(_device, &view_info, nullptr, &new_image.imageView));
 
-	immediate_submit([&](VkCommandBuffer cmd) {
-		vkutil::transition_image(cmd, new_image.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	ImmediateSubmit([&](VkCommandBuffer cmd) {
+		VkUtil::TransitionImage(cmd, new_image.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 		for (int i = 0; i < 6; i++){
 			VkBufferImageCopy copyRegion = {};
 			copyRegion.bufferOffset = face_size * i;
@@ -792,17 +739,16 @@ AllocatedImage VulkanEngine::create_cube_map(void** data, VkExtent3D size, VkFor
 			vkCmdCopyBufferToImage(cmd, uploadbuffer.buffer, new_image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
 				&copyRegion);
 		}
-		vkutil::transition_image(cmd, new_image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		VkUtil::TransitionImage(cmd, new_image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		});
 
-	destroy_buffer(uploadbuffer);
+	DestroyBuffer(uploadbuffer);
 	return new_image;
 }
 
-void VulkanEngine::destroy_image(const AllocatedImage& img)
+void VulkanEngine::DestroyImage(const AllocatedImage& img)
 {
     vkDestroyImageView(_device, img.imageView, nullptr);
     vmaDestroyImage(_allocator, img.image, img.allocation);
 }
-

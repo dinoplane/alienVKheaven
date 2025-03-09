@@ -1,13 +1,18 @@
 # AlienVkHeaven
 
 ### An attempt to render THE WORLD from the ground up. 
-
+AlienVkHeaven is a hobby engine capable of loading scenes (similar to the Quake map format) and GLTF models. 
+The end goal of this engine is to be capable of rendering fog. 
 
 # Current Features
 - GLTF Model Loading / Texturing
 - Multi-Draw Indirect
 - Deferred Shading
 - GPU driven / bindless rendering
+- GPU Instancing
+- Lighting
+- Scene Reloading
+
 
 # Anticipated Features
 - TODO: Get rid of unused code.
@@ -20,7 +25,6 @@
 - GPU Culling
 - Transparency
 - Scene Loading / Modification
-- GPU Instancing
 - Radix sort of some sort
 - Ray tracing
 - Path tracing?

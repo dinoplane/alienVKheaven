@@ -6,9 +6,9 @@ struct DescriptorLayoutBuilder {
 
     std::vector<VkDescriptorSetLayoutBinding> bindings;
 
-    void add_binding(uint32_t binding, VkDescriptorType type);
-    void clear();
-    VkDescriptorSetLayout build(VkDevice device, VkShaderStageFlags shaderStages, void* pNext = nullptr, VkDescriptorSetLayoutCreateFlags flags = 0);
+    void AddBinding(uint32_t binding, VkDescriptorType type);
+    void Clear();
+    VkDescriptorSetLayout BuildLayout(VkDevice device, VkShaderStageFlags shaderStages, void* pNext = nullptr, VkDescriptorSetLayoutCreateFlags flags = 0);
 };
 
 
@@ -19,14 +19,14 @@ public:
 		float ratio;
 	};
 
-	void init(VkDevice device, uint32_t initialSets, std::span<PoolSizeRatio> poolRatios);
-	void clear_pools(VkDevice device);
-	void destroy_pools(VkDevice device);
+	void Init(VkDevice device, uint32_t initialSets, std::span<PoolSizeRatio> poolRatios);
+	void ClearPools(VkDevice device);
+	void DestroyPools(VkDevice device);
 
-    VkDescriptorSet allocate(VkDevice device, VkDescriptorSetLayout layout, void* pNext = nullptr);
+    VkDescriptorSet Allocate(VkDevice device, VkDescriptorSetLayout layout, void* pNext = nullptr);
 private:
-	VkDescriptorPool get_pool(VkDevice device);
-	VkDescriptorPool create_pool(VkDevice device, uint32_t setCount, std::span<PoolSizeRatio> poolRatios);
+	VkDescriptorPool GetPool(VkDevice device);
+	VkDescriptorPool CreatePool(VkDevice device, uint32_t setCount, std::span<PoolSizeRatio> poolRatios);
 
 	std::vector<PoolSizeRatio> ratios;
 	std::vector<VkDescriptorPool> fullPools;
@@ -39,12 +39,22 @@ struct DescriptorWriter {
     std::vector<VkDescriptorImageInfo> imageInfos;
     std::deque<VkDescriptorBufferInfo> bufferInfos;
     std::vector<VkWriteDescriptorSet> writes;
+    
+	// Clears all the image infos, buffer infos, and writes
+	void Clear();
 
-    void write_image(int binding,VkImageView image,VkSampler sampler , VkImageLayout layout, VkDescriptorType type);
-	void write_texture(int binding,VkImageView image,VkSampler sampler , VkImageLayout layout, VkDescriptorType type);
-	void write_texture_write(int binding, VkDescriptorType type);
-    void write_buffer(int binding,VkBuffer buffer,size_t size, size_t offset,VkDescriptorType type); 
+	// Adds a single image info struct and its corresponding write struct
+    void WriteSingleImage(int binding,VkImageView image,VkSampler sampler , VkImageLayout layout, VkDescriptorType type);
+	
+	// Adds an image info struct
+	void AddImageInfo(int binding,VkImageView image,VkSampler sampler , VkImageLayout layout, VkDescriptorType type);
+	
+	// Creates a write struct for the image infos added
+	void CommitImageWrite(int binding, VkDescriptorType type);
+    
+	// Adds a single buffer info struct and its corresponding write struct
+	void WriteBuffer(int binding,VkBuffer buffer,size_t size, size_t offset,VkDescriptorType type); 
 
-    void clear();
-    void update_set(VkDevice device, VkDescriptorSet set);
+	// Updates the descriptor set with given writes
+    void ApplyDescriptorSetUpdates(VkDevice device, VkDescriptorSet set);
 };

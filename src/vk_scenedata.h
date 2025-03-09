@@ -8,7 +8,6 @@
 #include <camera.h>
 
 struct EntityData {
-    
     std::string className;
     Transform transform;
     bool isInstance;
@@ -17,20 +16,9 @@ struct EntityData {
 };
 
 struct SceneData {
-    // std::set<std::string> entityKeys; // so i could conserve space here but uh... save for another day 
     std::vector<EntityData> entitiesData;
-    // std::vector<Light> lightsData;
-
     std::string skyboxPath;
-
-    // std::vector<Camera> cameraData;
-
     bool errFlag = false;
-
-    // at this point its becoming an engine LMAO
-    // static SceneData GenerateSceneFromConfig(const std::string& configPath);
-    // If I process the file multithreadedly, TECHNICALLY, i can guarantee a random bvh insertion...
-    // Wait thats lk troll and funny.
 };
 
 

@@ -2,17 +2,17 @@
 #include "vk_engine.h"
 
 void Scene::ClearAll() {
-    if (modelData) {
-        for (const AllocatedImage& img : modelData->images) {
-            engine->destroy_image(img);
+    if (_modelData) {
+        for (const AllocatedImage& img : _modelData->images) {
+            _engine->DestroyImage(img);
         }
-        Loader::DestroyModelData(modelBuffers, engine);
-        modelData->ClearAll();
+        Loader::DestroyModelData(_modelBuffers, _engine);
+        _modelData->ClearAll();
     }
-    if (skyBoxImages.has_value()) {
-        engine->destroy_image(*skyBoxImages);
+    if (_skyBoxImage.has_value()) {
+        _engine->DestroyImage(*_skyBoxImage);
     }
 
-    engine->destroy_buffer(pointLightBuffer);
-    engine->destroy_buffer(lightSizeDataBuffer);
+    _engine->DestroyBuffer(_pointLightBuffer);
+    _engine->DestroyBuffer(_lightSizeDataBuffer);
 }

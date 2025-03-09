@@ -47,7 +47,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> Loader::LoadGltfModel(VulkanEngine* e
 			pixels[y * 16 + x] = ((x % 2) ^ (y % 2)) ? magenta : black;
 		}
 	}
-	AllocatedImage _errorCheckerboardImage = engine->create_image(pixels.data(), VkExtent3D{ 16, 16, 1 }, VK_FORMAT_R8G8B8A8_UNORM,
+	AllocatedImage _errorCheckerboardImage = engine->CreateImage(pixels.data(), VkExtent3D{ 16, 16, 1 }, VK_FORMAT_R8G8B8A8_UNORM,
 		VK_IMAGE_USAGE_SAMPLED_BIT);
 
     loadedModel.images.push_back(_errorCheckerboardImage);
@@ -98,8 +98,6 @@ std::optional<std::shared_ptr<LoadedGLTF>> Loader::LoadGltfModel(VulkanEngine* e
 
         // Load Materials
     	loadedModel.materials.resize(initMaterialsSize + gltfAsset.materials.size());
-
-    
         for ( size_t materialIdx = 0; materialIdx < gltfAsset.materials.size(); ++materialIdx ){
             const fastgltf::Material& gltfMaterial = gltfAsset.materials[materialIdx];
             LoadedMaterial& loadedMaterial = loadedModel.materials[initMaterialsSize + materialIdx];
@@ -110,6 +108,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> Loader::LoadGltfModel(VulkanEngine* e
             fmt::print("Alpha Cutoff: {}\n", loadedMaterial.alphaCutoff);
         }
 
+        //Load Meshes
         loadedModel.meshes.resize(initMeshesSize + gltfAsset.meshes.size());
         for ( size_t meshIdx = 0; meshIdx < gltfAsset.meshes.size(); ++meshIdx ){
             const fastgltf::Mesh& gltfMesh = gltfAsset.meshes[meshIdx];
@@ -125,7 +124,6 @@ std::optional<std::shared_ptr<LoadedGLTF>> Loader::LoadGltfModel(VulkanEngine* e
         }
 
         // Create scene graph by iterating through the nodes.
-        // loadedModel.nodes.resize(initNodesSize + gltfAsset.nodes.size());
         fastgltf::iterateSceneNodes(gltfAsset, 0u, fastgltf::math::fmat4x4(),
                                     [&](const fastgltf::Node& node, fastgltf::math::fmat4x4 matrix) {
                                         
@@ -138,7 +136,6 @@ std::optional<std::shared_ptr<LoadedGLTF>> Loader::LoadGltfModel(VulkanEngine* e
             }
             loadedModel.nodeTransforms.push_back(worldTransform);
         });
-
 
         for (size_t nodeIdx = 0; nodeIdx < gltfAsset.nodes.size(); ++nodeIdx) {
             fastgltf::Node& node = gltfAsset.nodes[nodeIdx];
@@ -157,17 +154,13 @@ std::optional<std::shared_ptr<LoadedGLTF>> Loader::LoadGltfModel(VulkanEngine* e
             }
         }
 
-
         size_t initInstanceTransformsSize = loadedModel.instanceTransforms.size();
-        // loadedModel.instanceTransforms.resize(initInstanceTransformsSize+ filePathPair.second.size());
         loadedModel.instanceTransforms.reserve(initInstanceTransformsSize + filePathPair.second.size());
         loadedModel.instanceTransforms.insert(loadedModel.instanceTransforms.end(), filePathPair.second.begin(), filePathPair.second.end());
 
-
-
+        // Generate draw calls by iterating through nodes across primitives.
         size_t initNodePrimitivePairSize = loadedModel.nodePrimitivePairs.size();
         size_t initDrawCmdBufferVecSize = loadedModel.drawCmdBufferVec.size();
-        // Generate draw calls by iterating through nodes across primitives.
         for ( uint32_t nodeIdx = initNodesSize; nodeIdx < loadedModel.nodes.size(); ++nodeIdx )
         {
             uint32_t meshIdx = loadedModel.nodes[nodeIdx].meshIdx;
@@ -201,8 +194,6 @@ std::optional<std::shared_ptr<LoadedGLTF>> Loader::LoadGltfModel(VulkanEngine* e
             static_cast<uint32_t>(initDrawCmdBufferVecSize), static_cast<uint32_t>(loadedModel.drawCmdBufferVec.size() - initDrawCmdBufferVecSize),
             static_cast<uint32_t>(initInstanceTransformsSize), static_cast<uint32_t>(filePathPair.second.size())
         } );
-
-
     }
 
     return scene;    
@@ -238,15 +229,9 @@ bool Loader::LoadGltfMesh(const fastgltf::Asset& gltfAsset, const fastgltf::Mesh
 					return false;
 
 				outPrimitiveProperties.textureIdx = baseImageIdx + texture.imageIndex.value();
-				// if (baseColorTexture->transform && baseColorTexture->transform->texCoordIndex.has_value()) {
-				// 	baseColorTexcoordIndex = baseColorTexture->transform->texCoordIndex.value();
-				// } else {
-				// 	baseColorTexcoordIndex = material.pbrData.baseColorTexture->texCoordIndex;
-				// } // Investigate what this is for
             }
         } else {
 			outPrimitiveProperties.materialIdx = 0;
-            // maybe a default texture?
 		}
 
         auto* positionIt = it->findAttribute("POSITION");
@@ -295,16 +280,7 @@ bool Loader::LoadGltfMesh(const fastgltf::Asset& gltfAsset, const fastgltf::Mesh
                 });
             }
         }
-
-		// auto& draw = outPrimitive.draw;
-		// draw.instanceCount = 1;
-        // draw.baseInstance = 0;
-        // draw.baseVertex = 0;
-		// draw.firstIndex = 0;
-
         auto& indexAccessor = gltfAsset.accessors[it->indicesAccessor.value()];
-		// draw.count = static_cast<std::uint32_t>(indexAccessor.count);
-
 		size_t initIndicesSize = indices->size();
 		outPrimitive.indexStartIdx = initIndicesSize;
 		outPrimitive.indexCount = indexAccessor.count;
@@ -313,40 +289,6 @@ bool Loader::LoadGltfMesh(const fastgltf::Asset& gltfAsset, const fastgltf::Mesh
 		fastgltf::iterateAccessorWithIndex<uint32_t>(gltfAsset, indexAccessor, [&](uint32_t indiceIdx, std::size_t idx) {
 				( *indices )[ initIndicesSize + idx ] = indiceIdx;
 		});
-
-
-		// std::size_t baseColorTexcoordIndex = 0;
-        // Get the output primitive
-        // auto index = std::distance(gltfMesh.primitives.begin(), it);
-        /*
-		model->primitivePropertiesBufferVec.push_back( { 0, 0 } ); // I could also pack both into a value
-        if (it->materialIndex.has_value()) {
-            outPrimitive.materialUniformsIndex = it->materialIndex.value() + 1; // Adjust for default material
-			model->primitivePropertiesBufferVec.back().materialIdx = it->materialIndex.value() + 1;
-
-            auto& material = asset.materials[it->materialIndex.value()];
-
-			auto& baseColorTexture = material.pbrData.baseColorTexture;
-            if (baseColorTexture.has_value()) {
-                auto& texture = asset.textures[baseColorTexture->textureIndex];
-				if (!texture.imageIndex.has_value())
-					return false;
-                outPrimitive.albedoTexture = model->textures[texture.imageIndex.value()].texture;
-
-				model->primitivePropertiesBufferVec.back().textureIdx = texture.imageIndex.value();
-				// fmt::print("Albedo Loaded {}\n", outPrimitive.albedoTexture);
-				if (baseColorTexture->transform && baseColorTexture->transform->texCoordIndex.has_value()) {
-					baseColorTexcoordIndex = baseColorTexture->transform->texCoordIndex.value();
-				} else {
-					baseColorTexcoordIndex = material.pbrData.baseColorTexture->texCoordIndex;
-				}
-            }
-        } else {
-			outPrimitive.materialUniformsIndex = 0;
-		}
-        */
-
-		
     }
 
     return true;
@@ -372,17 +314,10 @@ bool Loader::LoadGltfImage(VulkanEngine* engine,const std::string rootFilePath, 
             
 
             const std::string path = rootFilePath.substr(0, rootFilePath.find_last_of("/\\") + 1) + uriPath;
-            unsigned char *data = stbi_load(path.c_str(), &width, &height, &nrChannels, 4); // The file path is wrong.. fix it
+            unsigned char *data = stbi_load(path.c_str(), &width, &height, &nrChannels, 4); 
 
-			// glTextureParameteri(texture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
-			// glTextureParameteri(texture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
-			// glTextureParameteri(texture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-			// glTextureParameteri(texture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-			// glTextureStorage2D(texture, getLevelCount(width, height), GL_RGBA8, width, height);
-            // glTextureSubImage2D(texture, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
             VkExtent3D extent = {width, height, 1};
-            *outImage = engine->create_image(
+            *outImage = engine->CreateImage(
                     data,
                     extent,
                     VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false
@@ -397,7 +332,7 @@ bool Loader::LoadGltfImage(VulkanEngine* engine,const std::string rootFilePath, 
             unsigned char *data = stbi_load_from_memory(reinterpret_cast<const stbi_uc*>(vector.bytes.data()), static_cast<int>(vector.bytes.size()), &width, &height, &nrChannels, 4);
 	
             VkExtent3D extent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1};
-            *outImage = engine->create_image(
+            *outImage = engine->CreateImage(
                     data,
                     extent,
                     VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false
@@ -417,7 +352,7 @@ bool Loader::LoadGltfImage(VulkanEngine* engine,const std::string rootFilePath, 
 					static_cast<int>(bufferView.byteLength), &width, &height, &nrChannels, 4);
 
                     VkExtent3D extent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1};
-                    *outImage = engine->create_image(
+                    *outImage = engine->CreateImage(
                             data,
                             extent,
                             VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false
@@ -430,14 +365,8 @@ bool Loader::LoadGltfImage(VulkanEngine* engine,const std::string rootFilePath, 
         },
     }, image.data);
 
-    // engine->_mainDeletionQueue.push_function([=]() {
-    //     // fmt::print("Destroying Image: {}\n", path);
-    //     engine->destroy_image(*outImage);
-    // });
     return true;
-
 }
-
 
 bool Loader::LoadGltfMaterial(const fastgltf::Asset& gltfAsset, const fastgltf::Material& material, LoadedMaterial* outMaterial) {
     outMaterial->alphaCutoff = material.alphaCutoff;
@@ -453,7 +382,6 @@ bool Loader::LoadGltfMaterial(const fastgltf::Asset& gltfAsset, const fastgltf::
 	fmt::print("Has Base Color Texture: {}\n", outMaterial->flags & MaterialUniformFlags::HasBaseColorTexture);
     return true;
 }
-
 
 void LoadedGLTF::ClearAll(){
     meshes.clear();
@@ -546,31 +474,6 @@ GPUModelBuffers Loader::LoadGeometryFromGLTF(const LoadedGLTF& inModel, VulkanEn
 
 void Loader::PrintModelData(const LoadedGLTF& modelData){
     fmt::print("Model Data:\n");
-    // fmt::print("Meshes: {}\n", modelData.meshes.size());
-    // fmt::print("Primitives: {}\n", modelData.primitives.size());
-    // fmt::print("Vertices: {}\n", modelData.vertices.size());
-    // fmt::print("Indices: {}\n", modelData.indices.size());
-    // fmt::print("Nodes: {}\n", modelData.nodes.size());
-    // fmt::print("NodeTransforms: {}\n", modelData.nodeTransforms.size());
-    // fmt::print("NodePrimitivePairs: {}\n", modelData.nodePrimitivePairs.size());
-    // fmt::print("TopNodes: {}\n", modelData.topNodes.size());
-    // fmt::print("DrawCmdBufferVec: {}\n", modelData.drawCmdBufferVec.size());
-    // fmt::print("ModelDataVec: {}\n", modelData.modelDataVec.size());
-
-    // for (size_t i = 0; i < modelData.vertices.size(); ++i)
-    // {
-    //     fmt::print("Vertex: {}\n", i);
-    //     fmt::print("Position: ({}, {}, {})\n", vertices[i].position.x, vertices[i].position.y, vertices[i].position.z);
-    //     fmt::print("Color: ({}, {}, {}, {})\n", vertices[i].color.r, vertices[i].color.g, vertices[i].color.b, vertices[i].color.a);
-    //     fmt::print("UV: ({}, {})\n", vertices[i].uv_x, vertices[i].uv_y);
-    //     fmt::print("Normal: ({}, {}, {})\n", vertices[i].normal.x, vertices[i].normal.y, vertices[i].normal.z);
-    // }
-
-    // for (size_t i = 0; i < modelData.indices.size(); ++i)
-    // {
-    //     fmt::print("{} ", modelData.indices[i]);
-         
-    // }
     fmt::print("\n\nNodes ------------------------------------\n");
     for (size_t i = 0; i < modelData.nodeTransforms.size(); ++i)
     {
@@ -609,18 +512,16 @@ void Loader::PrintModelData(const LoadedGLTF& modelData){
     }
 }
 
-
 void Loader::DestroyModelData(const GPUModelBuffers& modelData, VulkanEngine* engine){
-    engine->destroy_buffer(modelData.vertexBuffer);
-    engine->destroy_buffer(modelData.indexBuffer);
-    engine->destroy_buffer(modelData.nodeTransformBuffer);
-    engine->destroy_buffer(modelData.primitiveBuffer);
-    engine->destroy_buffer(modelData.nodePrimitivePairBuffer);
-    engine->destroy_buffer(modelData.materialBuffer);
-    engine->destroy_buffer(modelData.drawCmdBuffer);
-    engine->destroy_buffer(modelData.instanceTransformBuffer);
+    engine->DestroyBuffer(modelData.vertexBuffer);
+    engine->DestroyBuffer(modelData.indexBuffer);
+    engine->DestroyBuffer(modelData.nodeTransformBuffer);
+    engine->DestroyBuffer(modelData.primitiveBuffer);
+    engine->DestroyBuffer(modelData.nodePrimitivePairBuffer);
+    engine->DestroyBuffer(modelData.materialBuffer);
+    engine->DestroyBuffer(modelData.drawCmdBuffer);
+    engine->DestroyBuffer(modelData.instanceTransformBuffer);
 }
-
 
 void Loader::Init(VulkanEngine* engine){
     this->engine = engine;
@@ -629,10 +530,7 @@ void Loader::Init(VulkanEngine* engine){
 
 void Loader::AddBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, void* data){
     creationParameters.push_back({allocSize, usage, memoryUsage, data});
-    
     totalStagingBufferSize += allocSize;
-
-    // fmt::print("Alloc Size: {} totalBufferSize: {}\n", allocSize, totalStagingBufferSize);
 }
 
 std::vector<AllocatedBuffer> Loader::UploadBuffers(){
@@ -640,11 +538,11 @@ std::vector<AllocatedBuffer> Loader::UploadBuffers(){
     
     for (size_t bufferIdx = 0; bufferIdx < creationParameters.size(); ++bufferIdx){
         auto& param = creationParameters[bufferIdx];
-        buffers[bufferIdx] = engine->create_buffer(param.allocSize, param.usage, param.memoryUsage);
+        buffers[bufferIdx] = engine->CreateBuffer(param.allocSize, param.usage, param.memoryUsage);
     }
 
     // create staging buffer to copy all the data
-	AllocatedBuffer staging = engine->create_buffer(totalStagingBufferSize,
+	AllocatedBuffer staging = engine->CreateBuffer(totalStagingBufferSize,
                  VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
 
     void* mappedData;
@@ -657,7 +555,7 @@ std::vector<AllocatedBuffer> Loader::UploadBuffers(){
         offset += param.allocSize;
     }
 
-	engine->immediate_submit([&](VkCommandBuffer cmd) {
+	engine->ImmediateSubmit([&](VkCommandBuffer cmd) {
         size_t offset = 0;
         for (size_t bufferIdx = 0; bufferIdx < creationParameters.size(); ++bufferIdx){
             auto& param = creationParameters[bufferIdx];
@@ -672,7 +570,7 @@ std::vector<AllocatedBuffer> Loader::UploadBuffers(){
 
 
     vmaUnmapMemory(engine->_allocator, staging.allocation);
-	engine->destroy_buffer(staging);
+	engine->DestroyBuffer(staging);
     return buffers;
 }
 
@@ -680,7 +578,6 @@ void Loader::Clear(){
     creationParameters.clear();
     totalStagingBufferSize = 0;
 }
-
 
 AllocatedImage Loader::LoadCubeMap(const std::vector<std::string> paths, VulkanEngine* engine){
    
@@ -694,7 +591,7 @@ AllocatedImage Loader::LoadCubeMap(const std::vector<std::string> paths, VulkanE
         fmt::print("Loaded Image: {}\n", paths[i]);
     }
     VkExtent3D extent = {width, height, 1};
-    AllocatedImage outImage = engine->create_cube_map(
+    AllocatedImage outImage = engine->CreateCubeMap(
         (void**) textureData,
         extent,
         VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false

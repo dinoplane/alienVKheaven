@@ -11,9 +11,9 @@ int main(int argc, char* argv[])
 {
 	 VulkanEngine engine;
 
-	 engine.init();	
-	 engine.run();	
-	 engine.cleanup();	
+	 engine.Init();	
+	 engine.Run();	
+	 engine.Cleanup();	
 
     _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_DEBUG); 
     _CrtDumpMemoryLeaks();

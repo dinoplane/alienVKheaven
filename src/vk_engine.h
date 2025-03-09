@@ -120,7 +120,6 @@ constexpr unsigned int FRAME_OVERLAP = 2;
 
 class VulkanEngine {
 public:
-
 	bool _isInitialized{ false };
 	int _frameNumber {0};
 	bool stop_rendering{ false };
@@ -128,6 +127,7 @@ public:
 
 	struct SDL_Window* _window{ nullptr };
 
+	// Essential engine components
 	VkInstance _instance;
 	VkDebugUtilsMessengerEXT _debug_messenger;
 	VkPhysicalDevice _chosenGPU;
@@ -142,7 +142,6 @@ public:
 	VkExtent2D _swapchainExtent;
 	VkExtent2D _drawExtent;
 	float renderScale = 1.f;
-
 
 	// Pipeline Layouts
 	VkPipeline _gradientPipeline;
@@ -165,13 +164,10 @@ public:
 	VkPipelineLayout _postProcessPassPipelineLayout;
 	VkPipeline _postProcessPassPipeline;
 
-	
-
 	// Swapchain
 	std::vector<VkFramebuffer> _framebuffers;
 	std::vector<VkImage> _swapchainImages;
 	std::vector<VkImageView> _swapchainImageViews;
-
 
 	//draw resources
 	AllocatedImage _drawImage;
@@ -188,12 +184,10 @@ public:
 	AllocatedBuffer _skyBoxIndexBuffer;
 
 	// Lighting Pass Resources
-	// light volumes instanced
+	// light volumes instanced TODO
 	// AllocatedBuffer _lightingBuffer;
 
-
 	// AllocatedImage _materialImage;
-
 	DescriptorAllocator globalDescriptorAllocator;
 
 	// Uniform Layouts
@@ -233,9 +227,6 @@ public:
 	VkDescriptorSetLayout _drawImageDescriptorLayout;
 	VkDescriptorSet _drawImageDescriptors;
 
-	VkDescriptorSetLayout _gltfPipelineDescriptorLayout[2];
-
-
 	// immediate submit structures
 	VkFence _immFence;
 	VkCommandBuffer _immCommandBuffer;
@@ -246,37 +237,22 @@ public:
 
 	DeletionQueue _mainDeletionQueue;
 	VmaAllocator _allocator; //vma lib allocator
-
-
+	
+	// Default Data
     VkSampler _defaultSamplerLinear;
 	VkSampler _defaultSamplerNearest;
-
 	GPUMeshBuffers rectangle;
-	
-	// std::vector<std::shared_ptr<MeshAsset>> testMeshes;
-	// std::shared_ptr<LoadedGLTF> modelData;
-	// GPUModelBuffers modelBuffers;
+
+	// UI
 	VulkanEngineUIState engineUIState;
 
+	// Scene
 	std::shared_ptr<Scene> scene;
+	GPUSceneData sceneUniformData;
+
 	bool isSceneLoaded{ false };
 	void LoadScene(const std::string& filePath);
 	void UnloadScene();
-	
-	GPUSceneData sceneUniformData;
-
-	// Camera Data
-	Camera _camera;
-
-	// timing data
-	float _deltaTime{ 0.0f };
-	float _lastFrame{ 0.0f };
-	float _frameTimer{ 0.0f };
-	std::chrono::time_point<std::chrono::high_resolution_clock> _lastTimePoint;
-
-
-	static VulkanEngine& Get();
-
 
 	enum SceneLoadFlag {
 		SCENE_LOAD_FLAG_NONE = 0,
@@ -290,37 +266,41 @@ public:
 	bool freeze_rendering{false};
 	bool scene_clear_requested{false};
 
-	//initializes everything in the engine
-	void init();
+	// Camera Data
+	Camera _camera;
 
+	// timing data
+	float _deltaTime{ 0.0f };
+	float _lastFrame{ 0.0f };
+	float _frameTimer{ 0.0f };
+	std::chrono::time_point<std::chrono::high_resolution_clock> _lastTimePoint;
 
-	//shuts down the engine
-	void cleanup();
+	static VulkanEngine& Get();
 
+	// Initializes everything in the engine
+	void Init();
 
-	//draw loop
-	void draw();
+	// Shuts down the engine
+	void Cleanup();
 
+	// Draw loop
+	void Draw();
 
-	//run main loop
-	void run();
+	// Run main loop
+	void Run();
 
+	// Submits commands to device immediately
+	void ImmediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
 
+	// Helper functions that allocate resources on device
+	AllocatedBuffer CreateBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+	AllocatedImage CreateImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
+	AllocatedImage CreateImage(void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
+	AllocatedImage CreateCubeMap(void** data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
+	void DestroyBuffer(const AllocatedBuffer& buffer);
+	void DestroyImage(const AllocatedImage& img);
 
-	void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
-
-	GPUMeshBuffers uploadMesh(std::span<uint32_t> indices, std::span<Vertex> vertices);
-	//GPUModelBuffers uploadModel(const LoadedGLTF& loadedGltf);
-
-	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
-	void destroy_buffer(const AllocatedBuffer& buffer);
-	AllocatedImage create_image(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
-	AllocatedImage create_image(void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
-	AllocatedImage create_cube_map(void** data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
-	
-	void destroy_image(const AllocatedImage& img);
-
-	private:
+private:
 
 	void InitVulkan();
 	
@@ -339,7 +319,7 @@ public:
 	void InitGeometryPassPipeline();
 	void InitSkyBoxPassPipeline();
 	void InitLightingPassPipeline();
-
+	void InitShadowPassPipeline();
 
 	void InitImgui();
 	void InitDefaultData();
@@ -348,9 +328,11 @@ public:
 	void DrawSkyBoxPass(VkCommandBuffer cmd);
 	void DrawGeometry(VkCommandBuffer cmd);
 	void DrawLightingPass(VkCommandBuffer cmd);
-	
 	void DrawImgui(VkCommandBuffer cmd, VkImageView targetImageView);
 
+	void UpdateScene();
+
+	// Input state
 	bool bQuit {false};
 	enum InputAction {
 		FORWARD = 0,
@@ -364,5 +346,4 @@ public:
 
 	void ProcessInput(SDL_Event* e);
 	void HandleKeyboardInput(const SDL_KeyboardEvent& key);
-	void UpdateScene();
 };

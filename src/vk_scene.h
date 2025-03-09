@@ -10,16 +10,16 @@
 class VulkanEngine;
 class Scene {
     public:
-        VulkanEngine* engine;
-        std::shared_ptr<LoadedGLTF> modelData;
-        GPUModelBuffers modelBuffers;
+        VulkanEngine* _engine;
+        std::shared_ptr<LoadedGLTF> _modelData;
+        GPUModelBuffers _modelBuffers;
 
-        LightBufferSizeData lightSizeData;
+        LightBufferSizeData _lightSizeData;
 
-        AllocatedBuffer pointLightBuffer;
-        AllocatedBuffer lightSizeDataBuffer;
+        AllocatedBuffer _pointLightBuffer;
+        AllocatedBuffer _lightSizeDataBuffer;
 
-        std::optional<AllocatedImage> skyBoxImages;
+        std::optional<AllocatedImage> _skyBoxImage;
 
         void ClearAll();
 };
