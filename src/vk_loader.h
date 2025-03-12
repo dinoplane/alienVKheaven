@@ -117,12 +117,15 @@ struct LoadedGLTF { // holds all the data for a group of gltf files
     std::vector<AllocatedImage> images;
     std::vector<LoadedMaterial> materials;
     std::vector<glm::mat4> instanceTransforms;
+    // std::vector<AABB> aabbs;
+    
 
     // nodes that dont have a parent, for iterating through the file in tree order
     std::vector<uint32_t> topNodes;
     
     std::vector<VkDrawIndexedIndirectCommand> drawCmdBufferVec;
     uint32_t drawCount;
+
 
     std::vector<ModelData> modelDataVec;
 

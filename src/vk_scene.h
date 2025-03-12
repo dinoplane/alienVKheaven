@@ -16,10 +16,18 @@ class Scene {
 
         LightBufferSizeData _lightSizeData;
 
+
+        bool _hasPointLights{false};
         AllocatedBuffer _pointLightBuffer;
         AllocatedBuffer _lightSizeDataBuffer;
+        AllocatedBuffer _lightTransformBuffer;
+
+        AllocatedBuffer _debugDrawCmdBuffer;
+        uint32_t _debugDrawCount;
 
         std::optional<AllocatedImage> _skyBoxImage;
+
+
 
         void ClearAll();
 };

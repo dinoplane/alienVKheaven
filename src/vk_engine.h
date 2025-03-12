@@ -164,6 +164,10 @@ public:
 	VkPipelineLayout _postProcessPassPipelineLayout;
 	VkPipeline _postProcessPassPipeline;
 
+	// Debug
+	VkPipelineLayout _debugPassPipelineLayout;
+	VkPipeline _debugPassPipeline;
+
 	// Swapchain
 	std::vector<VkFramebuffer> _framebuffers;
 	std::vector<VkImage> _swapchainImages;
@@ -218,6 +222,9 @@ public:
 	VkDescriptorSetLayout _texturesDescriptorLayout;
 	VkDescriptorSet _texturesDescriptors;
 
+	VkDescriptorSetLayout _debugPassDescriptorLayout;
+	VkDescriptorSet _debugPassDescriptors;
+
 	VkDescriptorSetLayout _uberShaderPassDescriptorLayout;
 	VkDescriptorSet _uberShaderPassDescriptors;
 
@@ -242,6 +249,10 @@ public:
     VkSampler _defaultSamplerLinear;
 	VkSampler _defaultSamplerNearest;
 	GPUMeshBuffers rectangle;
+
+	AllocatedBuffer _sphereVertexBuffer;
+	AllocatedBuffer _sphereIndexBuffer;
+	uint32_t _sphereIndexCount;
 
 	// UI
 	VulkanEngineUIState engineUIState;
@@ -319,7 +330,9 @@ private:
 	void InitGeometryPassPipeline();
 	void InitSkyBoxPassPipeline();
 	void InitLightingPassPipeline();
-	void InitShadowPassPipeline();
+	// void InitShadowPassPipeline();
+	void InitDebugPassPipeline();
+
 
 	void InitImgui();
 	void InitDefaultData();
@@ -328,6 +341,7 @@ private:
 	void DrawSkyBoxPass(VkCommandBuffer cmd);
 	void DrawGeometry(VkCommandBuffer cmd);
 	void DrawLightingPass(VkCommandBuffer cmd);
+	void DrawDebugPass(VkCommandBuffer cmd);
 	void DrawImgui(VkCommandBuffer cmd, VkImageView targetImageView);
 
 	void UpdateScene();

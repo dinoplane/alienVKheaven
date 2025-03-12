@@ -82,6 +82,13 @@ struct Transform
     glm::mat4 rotation;
     glm::mat4 scale;
 
+    Transform() {
+        translation = glm::identity<glm::mat4>();
+        rotation = glm::identity<glm::mat4>();
+        scale = glm::identity<glm::mat4>();
+    }
+
+
     glm::mat4 GetModelMatrix() const
     {
         return translation * rotation * scale;
@@ -90,13 +97,13 @@ struct Transform
     void SetPosition(const glm::vec3& pos)
     {
         originVec = pos;
-        translation = glm::translate(glm::mat4(1.0f), pos);
+        translation = glm::translate(translation, pos);
     }
     
     void SetRotation(const glm::vec3& rot)
     {
         anglesVec = rot;
-        rotation = glm::rotate(glm::mat4(1.0f), glm::radians(rot.x), glm::vec3(1.0f, 0.0f, 0.0f));
+        rotation = glm::rotate(rotation, glm::radians(rot.x), glm::vec3(1.0f, 0.0f, 0.0f));
         rotation = glm::rotate(rotation, glm::radians(rot.y), glm::vec3(0.0f, 1.0f, 0.0f));
         rotation = glm::rotate(rotation, glm::radians(rot.z), glm::vec3(0.0f, 0.0f, 1.0f));
     }
@@ -104,7 +111,7 @@ struct Transform
     void SetScale(const glm::vec3& scl)
     {
         scaleVec = scl;
-        scale = glm::scale(glm::mat4(1.0f), scl);
+        scale = glm::scale(scale, scl);
     }
 };
 
@@ -143,6 +150,11 @@ class IRenderable {
     virtual void Draw(const glm::mat4& topMatrix, DrawContext& ctx) = 0;
 };
 
+
+struct GPUAABB {
+    glm::vec3 min;
+    glm::vec3 max;
+};
 
 struct alignas(16) GPUSphere
 {                               // base alignment | aligned offset

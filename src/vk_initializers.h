@@ -25,7 +25,9 @@ VkPresentInfoKHR present_info();
 VkRenderingAttachmentInfo attachment_info(VkImageView view, VkClearValue* clear, VkImageLayout layout /*= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL*/);
 
 VkRenderingAttachmentInfo depth_attachment_info(VkImageView view,
-    VkImageLayout layout /*= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL*/);
+    VkImageLayout layout /*= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL*/,
+    VkAttachmentLoadOp loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+    VkAttachmentStoreOp storeOp = VK_ATTACHMENT_STORE_OP_STORE);
 
 VkRenderingInfo rendering_info(VkExtent2D renderExtent, VkRenderingAttachmentInfo* colorAttachment, uint32_t colorAttachmentCount,
     VkRenderingAttachmentInfo* depthAttachment);

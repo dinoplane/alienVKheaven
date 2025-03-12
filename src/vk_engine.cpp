@@ -184,6 +184,12 @@ void VulkanEngine::Draw()
 		VkUtil::TransitionImage(cmd, _albedoImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
 	
 		DrawLightingPass(cmd);
+		
+		if (scene->_hasPointLights){
+			VkUtil::TransitionImage(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+			DrawDebugPass(cmd);
+			VkUtil::TransitionImage(cmd, _drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+		}
 	}
 	
 	//transtion the draw image and the swapchain image into their correct transfer layouts
@@ -306,6 +312,46 @@ void VulkanEngine::DrawSkyBoxPass(VkCommandBuffer cmd){
 	vkCmdBindIndexBuffer(cmd, _skyBoxIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 	vkCmdDrawIndexed(cmd, 3, 1, 0, 0, 0);
 	vkCmdEndRenderingKHR(cmd);
+}
+
+void VulkanEngine::DrawDebugPass(VkCommandBuffer cmd){
+	//begin a render pass  connected to our draw image
+	VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(_drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+	VkRenderingAttachmentInfo depthAttachment = vkinit::depth_attachment_info(_depthImage.imageView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_NONE);
+
+	VkRenderingInfo renderInfo = vkinit::rendering_info(_drawExtent, &colorAttachment, 1, &depthAttachment);
+	vkCmdBeginRenderingKHR(cmd, &renderInfo);
+
+	//set dynamic viewport and scissor
+	VkViewport viewport = {};
+	viewport.x = 0;
+	viewport.y = 0;
+	viewport.width = _drawExtent.width;
+	viewport.height = _drawExtent.height;
+	viewport.minDepth = 0.f;
+	viewport.maxDepth = 1.f;
+
+	vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+	VkRect2D scissor = {};
+	scissor.offset.x = 0;
+	scissor.offset.y = 0;
+	scissor.extent.width = viewport.width;
+	scissor.extent.height = viewport.height;
+
+	vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _debugPassPipeline);
+
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _debugPassPipelineLayout, 0, 1, &_gpuSceneDataDescriptors, 0, nullptr);
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _debugPassPipelineLayout, 1, 1, &_debugPassDescriptors, 0, nullptr);
+
+	
+	vkCmdBindIndexBuffer(cmd, _sphereIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+	vkCmdDrawIndexedIndirect(cmd, scene->_debugDrawCmdBuffer.buffer, 0, scene->_debugDrawCount, sizeof(VkDrawIndexedIndirectCommand));
+
+	vkCmdEndRenderingKHR(cmd);
+
 }
 
 void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)

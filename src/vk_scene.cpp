@@ -15,4 +15,8 @@ void Scene::ClearAll() {
 
     _engine->DestroyBuffer(_pointLightBuffer);
     _engine->DestroyBuffer(_lightSizeDataBuffer);
+    _engine->DestroyBuffer(_lightTransformBuffer);
+    _engine->DestroyBuffer(_debugDrawCmdBuffer);
+    _hasPointLights = false;
+    _debugDrawCount = 0;
 }

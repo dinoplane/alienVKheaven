@@ -92,6 +92,7 @@ void VulkanEngine::InitVulkan()
 
 	VkPhysicalDeviceFeatures fineGrainedFeatures{};
 	fineGrainedFeatures.multiDrawIndirect = true;
+	fineGrainedFeatures.fillModeNonSolid = true;
 	//fineGrainedFeatures.features.drawIndirectFirstInstance = VK_TRUE; 
 	//deviceBuilder.add_pNext(&fineGrainedFeatures);
 
@@ -431,6 +432,14 @@ void VulkanEngine::InitDescriptors()
 	}
 	_deferredPassDescriptors = globalDescriptorAllocator.Allocate(_device, _deferredPassDescriptorLayout);
 
+	{ // debug pass descriptors
+		DescriptorLayoutBuilder builder;
+		builder.AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER); // sphere vertex buffer
+		builder.AddBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER); // light transforms buffer
+		
+		_debugPassDescriptorLayout = builder.BuildLayout(_device, VK_SHADER_STAGE_VERTEX_BIT);
+	}
+	_debugPassDescriptors = globalDescriptorAllocator.Allocate(_device, _debugPassDescriptorLayout);
 
 	{ // geometry textures descriptors
 		// update these values to be useful for your specific use case
@@ -533,8 +542,8 @@ void VulkanEngine::InitDescriptors()
 		vkDestroyDescriptorSetLayout(_device, _lightingDataDescriptorLayout, nullptr);
 		vkDestroyDescriptorSetLayout(_device, _vertexDescriptorLayout, nullptr);
 		vkDestroyDescriptorSetLayout(_device, _deferredPassDescriptorLayout, nullptr);
-		// vkDestroyDescriptorSetLayout(_device, _uberShaderPassDescriptorLayout, nullptr);
 		vkDestroyDescriptorSetLayout(_device, _texturesDescriptorLayout, nullptr);
+		vkDestroyDescriptorSetLayout(_device, _debugPassDescriptorLayout, nullptr);
 	});
 
 	{
@@ -861,13 +870,76 @@ void VulkanEngine::InitLightingPassPipeline(){
     });
 }
 
+void VulkanEngine::InitDebugPassPipeline(){
+	VkShaderModule triangleFragShader;
+	if (!VkUtil::LoadShaderModule("../shaders/debug.frag.spv", _device, &triangleFragShader)) {
+		fmt::print("Error when building the fragment shader \n");
+	}
+	else {
+		fmt::print("Debug fragment shader succesfully loaded \n");
+	}
+
+	VkShaderModule triangleVertexShader;
+	if (!VkUtil::LoadShaderModule("../shaders/debug.vert.spv", _device, &triangleVertexShader)) {
+		fmt::print("Error when building the vertex shader \n");
+	}
+	else {
+		fmt::print("Triangle vertex shader succesfully loaded \n");
+	}
+
+	// VkPushConstantRange bufferRange{};
+	// bufferRange.offset = 0;
+	// bufferRange.size = sizeof(GPUDrawPushConstants);
+	// bufferRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
+
+	std::vector<VkDescriptorSetLayout> tmpLayoutVec;
+	tmpLayoutVec.push_back(_gpuSceneDataDescriptorLayout);
+	tmpLayoutVec.push_back(_debugPassDescriptorLayout);
+
+
+	VkPipelineLayoutCreateInfo pipeline_layout_info = vkinit::pipeline_layout_create_info();
+	pipeline_layout_info.pPushConstantRanges = nullptr;
+	pipeline_layout_info.pushConstantRangeCount = 0;
+	pipeline_layout_info.pSetLayouts = tmpLayoutVec.data();
+	pipeline_layout_info.setLayoutCount = tmpLayoutVec.size();
+	VK_CHECK(vkCreatePipelineLayout(_device, &pipeline_layout_info, nullptr, &_debugPassPipelineLayout));
+
+
+	//exactly same as above but with the depth testing set
+	PipelineBuilder pipelineBuilder;
+
+	//use the triangle layout we created
+	pipelineBuilder._pipelineLayout = _debugPassPipelineLayout;
+	pipelineBuilder.SetShaders(triangleVertexShader, triangleFragShader);
+	pipelineBuilder.SetInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+	pipelineBuilder.SetPolygonMode(VK_POLYGON_MODE_LINE);
+	pipelineBuilder.SetCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
+	pipelineBuilder.SetMultiSamplingNone();
+
+	pipelineBuilder.EnableDepthTest(false, VK_COMPARE_OP_GREATER_OR_EQUAL);
+
+	pipelineBuilder.AddColorAttachment(_drawImage.imageFormat,PipelineBuilder::DisableBlending());
+	pipelineBuilder.SetDepthFormat(_depthImage.imageFormat);
+
+	//finally build the pipeline
+	_debugPassPipeline = pipelineBuilder.BuildPipeline(_device);
+
+	vkDestroyShaderModule(_device, triangleFragShader, nullptr);
+	vkDestroyShaderModule(_device, triangleVertexShader, nullptr);
+
+	_mainDeletionQueue.push_function([&]() {
+		vkDestroyPipelineLayout(_device, _debugPassPipelineLayout, nullptr);
+		vkDestroyPipeline(_device, _debugPassPipeline, nullptr);
+	});
+}
+
 void VulkanEngine::InitGraphicsPipelines()
 {
 	
 	InitGeometryPassPipeline();
 	InitSkyBoxPassPipeline();
 	InitLightingPassPipeline();
-
+	InitDebugPassPipeline();
 	
 	
 
@@ -950,6 +1022,55 @@ void VulkanEngine::InitImgui()
     });
 }
 
+static void GenerateSphere(std::vector<glm::vec4> & sphereVertices, std::vector<uint32_t> & sphereIndices, uint32_t layerCount, uint32_t sectorCount){
+	// Top vertex
+	sphereVertices.push_back(glm::vec4(0.0f, 1.0f, 0.0f, 1.0f));
+
+	// Middle vertices (converting spherical coordinates to cartesian)
+	for (int i = 0; i < layerCount - 1; ++i){
+		float phi = glm::pi<float>() * (i + 1) / layerCount;
+		for (int j = 0; j < sectorCount; ++j){
+			float theta = glm::two_pi<float>() * j / sectorCount;
+			sphereVertices.push_back(glm::vec4(
+				sin(phi) * cos(theta),
+				cos(phi),
+				sin(phi) * sin(theta),
+				1.0f
+			));
+		}
+	}
+
+	// Bottom vertex
+	sphereVertices.push_back(glm::vec4(0.0f, -1.0f, 0.0f, 1.0f));
+
+	// Top cap (triangles)
+	for (int i = 0; i < sectorCount; ++i){
+		sphereIndices.push_back(0);
+		sphereIndices.push_back(i + 1);
+		sphereIndices.push_back((i + 1) % sectorCount + 1);
+	}
+
+	// Middle quads
+	for (int i = 0; i < layerCount - 2; ++i){
+		for (int j = 0; j < sectorCount; ++j){
+			sphereIndices.push_back(i * sectorCount + j + 1);
+			sphereIndices.push_back((i + 1) * sectorCount + j + 1);
+			sphereIndices.push_back((i + 1) * sectorCount + (j + 1) % sectorCount + 1);
+
+			sphereIndices.push_back(i * sectorCount + j + 1);
+			sphereIndices.push_back((i + 1) * sectorCount + (j + 1) % sectorCount + 1);
+			sphereIndices.push_back(i * sectorCount + (j + 1) % sectorCount + 1);
+		}
+	}
+
+	// Bottom cap (triangles)
+	for (int i = 0; i < sectorCount; ++i){
+		sphereIndices.push_back(sphereVertices.size() - 1);
+		sphereIndices.push_back((layerCount - 2) * sectorCount + (i + 1) % sectorCount + 1);
+		sphereIndices.push_back((layerCount - 2) * sectorCount + i + 1);
+	}
+}
+
 void VulkanEngine::InitDefaultData()
 {
 	VkSamplerCreateInfo sampl = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
@@ -978,7 +1099,6 @@ void VulkanEngine::InitDefaultData()
 		0, 1, 2
 	};
 
-	
 	Loader loader;
 	loader.Init(this);
 	loader.AddBuffer(sizeof(glm::vec4) * skyBoxVertices.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT| VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY, skyBoxVertices.data());
@@ -1003,6 +1123,29 @@ void VulkanEngine::InitDefaultData()
 	_mainDeletionQueue.push_function([&]() {
 		DestroyBuffer(_skyBoxVertexBuffer);
 		DestroyBuffer(_skyBoxIndexBuffer);
+	});
+
+	std::vector<glm::vec4> sphereVertices;
+	std::vector<uint32_t> sphereIndices;
+	GenerateSphere(sphereVertices, sphereIndices, 50, 100);
+	_sphereIndexCount = sphereIndices.size();
+
+	loader.AddBuffer(sizeof(glm::vec4) * sphereVertices.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT| VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY, sphereVertices.data());
+	loader.AddBuffer(sizeof(uint32_t) * sphereIndices.size(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY, sphereIndices.data());
+	buffers = loader.UploadBuffers();
+
+	_sphereVertexBuffer = buffers[0];
+	_sphereIndexBuffer = buffers[1];
+
+	{
+		DescriptorWriter writer;
+		writer.WriteBuffer(0, _sphereVertexBuffer.buffer, sizeof(glm::vec4) * sphereVertices.size(), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		writer.ApplyDescriptorSetUpdates(_device, _debugPassDescriptors);
+	}
+
+	_mainDeletionQueue.push_function([&]() {
+		DestroyBuffer(_sphereVertexBuffer);
+		DestroyBuffer(_sphereIndexBuffer);
 	});
 }
 
@@ -1063,13 +1206,21 @@ void VulkanEngine::LoadScene(const std::string& filePath){
 		}
 	}
 
+	uint32_t numPointLights = (scene->_lightSizeData.numPointLights > 0) ? scene->_lightSizeData.numPointLights : 1;
 	{
 		DescriptorWriter writer;
 		writer.WriteBuffer(0, scene->_lightSizeDataBuffer.buffer,
 			sizeof(LightBufferSizeData), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 		writer.WriteBuffer(1, scene->_pointLightBuffer.buffer,
-			scene->_lightSizeData.numPointLights * sizeof(PointLightData), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+			numPointLights * sizeof(PointLightData), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 		writer.ApplyDescriptorSetUpdates(_device, _lightingDataDescriptors);
+	}
+
+	{
+		DescriptorWriter writer;
+		writer.WriteBuffer(1, scene->_lightTransformBuffer.buffer,
+			numPointLights * sizeof(glm::mat4), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		writer.ApplyDescriptorSetUpdates(_device, _debugPassDescriptors);
 	}
 
 	isSceneLoaded = true;

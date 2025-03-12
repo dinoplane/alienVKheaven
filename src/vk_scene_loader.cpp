@@ -6,6 +6,8 @@
 #include <string_view>
 #include <unordered_set>
 
+#include <vk_engine.h>
+
 #include "stb_image.h"
 static glm::vec3 ParseVec3(const std::string& vec3Str)
 {
@@ -24,12 +26,10 @@ static constexpr uint64_t hash(std::string_view str) {
     return hash;
 }
 
-
 // https://medium.com/@ryan_forrester_/using-switch-statements-with-strings-in-c-a-complete-guide-efa12f64a59d cool beans
 static constexpr uint64_t operator"" _hash(const char* str, size_t len) {
     return hash(std::string_view(str, len));
 }
-
 
 void SceneLoader::LoadScene(const SceneData& sceneData, Scene* scene, VulkanEngine* engine)
 {
@@ -42,6 +42,9 @@ void SceneLoader::LoadScene(const SceneData& sceneData, Scene* scene, VulkanEngi
     // Add entities as instances. 
     std::unordered_map<std::string, std::vector<glm::mat4>> modelToInstanceModelMatrices;
     std::vector<PointLightData> pointLights;
+    std::vector<glm::mat4> lightTransforms;
+    std::vector<VkDrawIndexedIndirectCommand> debugDrawCmdBufferVec;
+
     for (const EntityData& entityData : sceneData.entitiesData)
     {
         std::string classname = entityData.className;
@@ -74,6 +77,7 @@ void SceneLoader::LoadScene(const SceneData& sceneData, Scene* scene, VulkanEngi
                 pointLight.intensity = entityData.lightData.intensity;
                 pointLight.radius = entityData.lightData.radius;
                 pointLights.push_back(pointLight);
+                lightTransforms.push_back(entityData.transform.GetModelMatrix());
             } break;
 
             default:
@@ -84,20 +88,56 @@ void SceneLoader::LoadScene(const SceneData& sceneData, Scene* scene, VulkanEngi
     scene->_modelData = Loader::LoadGltfModel(engine, modelToInstanceModelMatrices).value();
     scene->_modelBuffers = Loader::LoadGeometryFromGLTF(*scene->_modelData.get() , engine);
 
-    scene->_lightSizeData.numPointLights = pointLights.size();
+    SceneLoader::LoadPointLights(engine, scene, &pointLights, &lightTransforms, &debugDrawCmdBufferVec);
+}
+
+void SceneLoader::LoadPointLights(VulkanEngine* engine, Scene* scene,
+    std::vector<PointLightData>* pointLights,
+    std::vector<glm::mat4>* lightTransforms,
+    std::vector<VkDrawIndexedIndirectCommand>* debugDrawCmdBufferVec){
+
+    scene->_lightSizeData.numPointLights = pointLights->size();
+
+
+    // Create debug draw commands
+    struct VkDrawIndexedIndirectCommand debugPointLightCmd;
+    debugPointLightCmd.firstInstance = 0;
+    debugPointLightCmd.instanceCount = pointLights->size();
+    debugPointLightCmd.firstIndex = 0;
+    debugPointLightCmd.vertexOffset = 0;
+    debugPointLightCmd.indexCount = engine->_sphereIndexCount; // This for a sphere
+    debugDrawCmdBufferVec->push_back(debugPointLightCmd);
+
+    scene->_debugDrawCount = debugDrawCmdBufferVec->size();
+
+    if (pointLights->size() == 0) {
+        pointLights->push_back(PointLightData{
+            .position = glm::vec3(0.0f),
+            .radius = 1.0f,
+            .color = glm::vec3(1.0f),
+            .intensity = 1.0f
+        });
+        lightTransforms->push_back(glm::mat4(1.0f));
+        scene->_hasPointLights = false;
+    } else scene->_hasPointLights = true;
 
     Loader loader;
     loader.Init(engine);
-    loader.AddBuffer(sizeof(PointLightData) * pointLights.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY, pointLights.data());
 
+    // Create buffers for lights and debug draw commands
+    loader.AddBuffer(sizeof(PointLightData) * pointLights->size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY, pointLights->data());
     loader.AddBuffer(sizeof(LightBufferSizeData), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY, &scene->_lightSizeData);
+    loader.AddBuffer(sizeof(glm::mat4) * lightTransforms->size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY, lightTransforms->data());
+    loader.AddBuffer(sizeof(VkDrawIndexedIndirectCommand) * debugDrawCmdBufferVec->size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY, debugDrawCmdBufferVec->data());
 
     std::vector<AllocatedBuffer> buffers = loader.UploadBuffers();
     scene->_pointLightBuffer = buffers[0];
     scene->_lightSizeDataBuffer = buffers[1];
-    
-    // scene->pointLightBuffer = engine->CreateBuffer(sizeof(PointLightData) * pointLights.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+    scene->_lightTransformBuffer = buffers[2];
+    scene->_debugDrawCmdBuffer = buffers[3];
+
 }
+
 
 void SceneLoader::LoadSceneData(const std::string& scenePath, SceneData* sceneData)
 {
@@ -166,6 +206,7 @@ void SceneLoader::LoadSceneData(const std::string& scenePath, SceneData* sceneDa
                     case "radius"_hash:
                     {
                         data.lightData.radius = std::stof(value);
+                        data.transform.SetScale(glm::vec3(data.lightData.radius));
                     } break;
                     case "color"_hash:
                     {

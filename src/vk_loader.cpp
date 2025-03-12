@@ -521,6 +521,7 @@ void Loader::DestroyModelData(const GPUModelBuffers& modelData, VulkanEngine* en
     engine->DestroyBuffer(modelData.materialBuffer);
     engine->DestroyBuffer(modelData.drawCmdBuffer);
     engine->DestroyBuffer(modelData.instanceTransformBuffer);
+    
 }
 
 void Loader::Init(VulkanEngine* engine){
