@@ -185,6 +185,10 @@ void VulkanEngine::Draw()
 
 		DrawDepthPass(cmd);
 
+		// for (uint32_t i = 0; i < scene->_shadowMapCount; i++) {
+		// 	VkUtil::TransitionImage(cmd, scene->_shadowMapBuffer[i].image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+		// }
+
 		//for (uint32_t i = 0; i < scene->_shadowMapCount; i++) {
 		//	VkUtil::TransitionImage(cmd, scene->_shadowMapBuffer[i].image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
 		//}
@@ -470,6 +474,7 @@ void VulkanEngine::DrawLightingPass(VkCommandBuffer cmd)
 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _lightingPassPipelineLayout, 1, 1, &_deferredPassDescriptors, 0, nullptr);
 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _lightingPassPipelineLayout, 2, 1, &_drawImageDescriptors, 0, nullptr);
 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _lightingPassPipelineLayout, 3, 1, &_lightingDataDescriptors, 0, nullptr);
+	// vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _lightingPassPipelineLayout, 4, 1, &_shadowMapDescriptors, 0, nullptr);
 
 	// execute the compute pipeline dispatch. We are using 16x16 workgroup size so we need to divide by it
 	vkCmdDispatch(cmd, std::ceil(_drawExtent.width / 16.0), std::ceil(_drawExtent.height / 16.0), 1);

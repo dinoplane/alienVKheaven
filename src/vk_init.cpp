@@ -493,7 +493,7 @@ void VulkanEngine::InitDescriptors()
 		layoutBinding.binding = 0u;
 		layoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		layoutBinding.descriptorCount = 100; // TODO Figure out if this means that I can only have 100 textures bounded at the same time
-		layoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+		layoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
 	
 		VkDescriptorBindingFlags bindFlag = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT;
 	
@@ -865,7 +865,8 @@ void VulkanEngine::InitLightingPassPipeline(){
 		_gpuSceneDataDescriptorLayout,
 		_deferredPassDescriptorLayout,
 		_drawImageDescriptorLayout,
-		_lightingDataDescriptorLayout
+		_lightingDataDescriptorLayout,
+//		_shadowMapDescriptorLayout
 	};
 	VkPipelineLayoutCreateInfo computeLayout{};
 	computeLayout.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;

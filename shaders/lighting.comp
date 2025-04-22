@@ -1,5 +1,7 @@
 #version 460
 
+#extension GL_EXT_nonuniform_qualifier : enable
+
 layout (local_size_x = 16, local_size_y = 16) in;
 
 layout(set = 0, binding = 0) readonly uniform GPUSceneBuffer{ 
@@ -34,7 +36,7 @@ layout(set = 3, binding = 1) buffer readonly PointLightBuffer{
 };
 
 
-// layout(set = 4, binding = 0) uniform sampler2D shadowMaps[][6];
+// layout(set = 4, binding = 0) uniform sampler2DArrayShadow shadowMaps[];
 
 
 const vec3 colors[6] = {
@@ -49,11 +51,11 @@ const vec3 colors[6] = {
 struct ShadowMapData {
     uint shadowMapIdx;
     vec2 shadowMapUV;
-}
+};
 
 ShadowMapData selectShadowMapIdx(vec3 lightToFrag)
 {
-    ShadowMapData ret {};
+    ShadowMapData ret;
 
     vec3 absLightDir = abs(lightToFrag);
     if (absLightDir.x > absLightDir.y && absLightDir.x > absLightDir.z)
@@ -70,6 +72,9 @@ ShadowMapData selectShadowMapIdx(vec3 lightToFrag)
     {
         ret.shadowMapIdx = (lightToFrag.z > 0.0) ? 1 : 3;
         ret.shadowMapUV = vec2(lightToFrag.x, lightToFrag.y) / absLightDir.z;
+    } else {
+        ret.shadowMapIdx = 0;
+        ret.shadowMapUV = vec2(0.0, 0.0);
     }
     
 
@@ -94,9 +99,9 @@ void main()
         vec3 unlit = albedo.rgb * 0.1;
 
         vec3 outColor = unlit;
-        for (int i = 0; i < pointLightBufferLength; i++)
+        for (int pointLightIdx = 0; pointLightIdx < pointLightBufferLength; pointLightIdx++)
         {
-            PointLight light = pointLights[i];
+            PointLight light = pointLights[pointLightIdx];
             vec3 distVec = light.position - position.xyz;
             float dist = sqrt(dot(distVec, distVec));
             vec3 lightDir = distVec / dist;
@@ -111,9 +116,11 @@ void main()
             float NdL = max(dot(normal, lightDir), 0.0);
 
             ShadowMapData selectedShadowMap = selectShadowMapIdx(-lightDir);
-            uint colorIdx = selectedShadowMap.shadowMapIdx;
-            vec2 shadowMapUV = selectedShadowMap.shadowMapUV * 0.5 + 0.5;
-            vec3 shadowMapColor = colors[colorIdx];
+            uint shadowMapIdx = selectedShadowMap.shadowMapIdx;
+            // vec4 shadowMapUV = vec4( selectedShadowMap.shadowMapUV * 0.5 + 0.5, float(shadowMapIdx), 0.0) ;
+            // 
+            vec3 shadowMapColor = colors[shadowMapIdx];
+            shadowMapColor *= texture(shadowMaps[pointLightIdx], shadowMapUV);
             outColor +=  NdL * albedo.rgb * shadowMapColor * light.intensity * f_window * c_light;
 
             // outColor = vec3(1.0, 0.0, 0.0); 
