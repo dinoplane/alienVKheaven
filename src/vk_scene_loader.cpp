@@ -142,7 +142,7 @@ void SceneLoader::LoadPointLights(VulkanEngine* engine, Scene* scene,
         AllocatedImage shadowMap = engine->CreateImage(
                                                     VkExtent3D{ shadowMapWidth, shadowMapWidth, 1 }, 
                                                     VK_FORMAT_D32_SFLOAT, 
-                                                    VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, 
+                                                    VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, 
                                                     false, 
                                                     scene->_shadowMapLayers);
         scene->_shadowMapBuffer.push_back(shadowMap);

@@ -6,7 +6,7 @@
 
 // layout (location = 0) out vec3 outColor;
 // layout (location = 1) out vec2 outUV;
-// layout (location = 2) out vec3 outPosition;
+layout (location = 0) out vec3 outPosition;
 // layout (location = 3) out vec3 outNormal;
 // layout (location = 4) out flat uint outTextureIndex;
 // layout (location = 5) out flat uint outMaterialIndex;
@@ -110,6 +110,7 @@ void main()
     lightSpaceView[3] = vec4(pointLights[PushConstants.shadowMapIdx].position, 1.0f);
 
     mat4 lightSpaceProjection = lightSpaceMatricesData.lightProjectionMatrix;
+    outPosition = pos.xyz;
 
 	gl_Position =  lightSpaceProjection * lightSpaceView * pos;
 }

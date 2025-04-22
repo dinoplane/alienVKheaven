@@ -155,6 +155,9 @@ void VulkanEngine::Draw()
 	VkImageSubresourceRange clearRange = vkinit::image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);
 
 	vkCmdClearColorImage(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
+	
+
+
 
 	if (isSceneLoaded){
 		if (scene->_skyBoxImage.has_value()) {
@@ -163,6 +166,17 @@ void VulkanEngine::Draw()
 			VkUtil::TransitionImage(cmd, _drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
 		}
 		
+		// for (uint32_t i = 0; i < scene->_shadowMapCount; i++) {
+		// 	VkUtil::TransitionImage(cmd, scene->_shadowMapBuffer[i].image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+			
+		// 	VkClearDepthStencilValue clearDepthValue;
+		// 	// float flash = std::abs(std::sin(_frameNumber / 120.f));
+		// 	clearValue = { 1.0f, 0.0f };
+		
+		// 	VkImageSubresourceRange clearDepthRange = vkinit::image_subresource_range(VK_IMAGE_ASPECT_DEPTH_BIT);
+			
+		// 	vkCmdClearDepthStencilImage(cmd, scene->_shadowMapBuffer[i].image, VK_IMAGE_LAYOUT_GENERAL, &clearDepthValue, 1, &clearDepthRange);
+		// }
 
 		VkUtil::TransitionImage(cmd, _positionImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 		VkUtil::TransitionImage(cmd, _normalImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
@@ -185,9 +199,9 @@ void VulkanEngine::Draw()
 
 		DrawDepthPass(cmd);
 
-		// for (uint32_t i = 0; i < scene->_shadowMapCount; i++) {
-		// 	VkUtil::TransitionImage(cmd, scene->_shadowMapBuffer[i].image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
-		// }
+		for (uint32_t i = 0; i < scene->_shadowMapCount; i++) {
+			VkUtil::TransitionImage(cmd, scene->_shadowMapBuffer[i].image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL);
+		}
 
 		//for (uint32_t i = 0; i < scene->_shadowMapCount; i++) {
 		//	VkUtil::TransitionImage(cmd, scene->_shadowMapBuffer[i].image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
@@ -447,7 +461,7 @@ void VulkanEngine::DrawDepthPass(VkCommandBuffer cmd){
 
 		uint32_t shadowMapPushConstants[4] = {shadowMapIdx, shadowMapIdx, shadowMapIdx, shadowMapIdx};
 	
-		vkCmdPushConstants(cmd, _depthPassPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(uint32_t) * 4, shadowMapPushConstants);
+		vkCmdPushConstants(cmd, _depthPassPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(uint32_t) * 4, shadowMapPushConstants);
 
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _depthPassPipeline);
 
@@ -474,7 +488,9 @@ void VulkanEngine::DrawLightingPass(VkCommandBuffer cmd)
 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _lightingPassPipelineLayout, 1, 1, &_deferredPassDescriptors, 0, nullptr);
 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _lightingPassPipelineLayout, 2, 1, &_drawImageDescriptors, 0, nullptr);
 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _lightingPassPipelineLayout, 3, 1, &_lightingDataDescriptors, 0, nullptr);
-	// vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _lightingPassPipelineLayout, 4, 1, &_shadowMapDescriptors, 0, nullptr);
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _lightingPassPipelineLayout, 4, 1, &_shadowMapDescriptors, 0, nullptr);
+
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _lightingPassPipelineLayout, 5, 1, &_depthPassDescriptors, 0, nullptr);
 
 	// execute the compute pipeline dispatch. We are using 16x16 workgroup size so we need to divide by it
 	vkCmdDispatch(cmd, std::ceil(_drawExtent.width / 16.0), std::ceil(_drawExtent.height / 16.0), 1);
@@ -743,7 +759,7 @@ AllocatedImage VulkanEngine::CreateImage(VkExtent3D size, VkFormat format, VkIma
 
 	if (arrayLayers > 1){
 		view_info.subresourceRange.layerCount = img_info.arrayLayers;
-		view_info.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;		
+		view_info.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
 	}
 
 	VK_CHECK(vkCreateImageView(_device, &view_info, nullptr, &newImage.imageView));

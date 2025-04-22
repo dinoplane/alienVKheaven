@@ -47,14 +47,7 @@
 "origin" "0 0 0"
 "radius" "10.0"
 "color" "1.0 1.0 1.0"
-"intensity" "0.1"
-}
-{
-"classname" "model"
-"origin" "0 2.0 0"
-"angles" "0 -90 0"
-"scale" "0.5 0.5 0.5"
-"path" "../assets/models/DamagedHelmet/glTF/DamagedHelmet.gltf
+"intensity" "0.2"
 }
 {
 "classname" "model"
@@ -62,12 +55,5 @@
 "angles" "0 0 0"
 "scale" "0.5 0.5 0.5"
 "path" "../assets/models/DamagedHelmet/glTF/DamagedHelmet.gltf
-}
-{
-"classname" "model"
-"origin" "0 0 0"
-"angles" "0 0 0"
-"scale" "1 1 1"
-"path" "../assets/models/inverted_square.glb
 }
 

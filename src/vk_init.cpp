@@ -866,7 +866,8 @@ void VulkanEngine::InitLightingPassPipeline(){
 		_deferredPassDescriptorLayout,
 		_drawImageDescriptorLayout,
 		_lightingDataDescriptorLayout,
-//		_shadowMapDescriptorLayout
+		_shadowMapDescriptorLayout, 
+		_depthPassDescriptorLayout
 	};
 	VkPipelineLayoutCreateInfo computeLayout{};
 	computeLayout.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -944,7 +945,7 @@ void VulkanEngine::InitDepthPassPipeline(){
 	VkPushConstantRange shadowMapPushConstant;
 	shadowMapPushConstant.offset = 0;
 	shadowMapPushConstant.size = sizeof(uint32_t) * 4;
-	shadowMapPushConstant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	shadowMapPushConstant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
 	VkPipelineLayoutCreateInfo pipeline_layout_info = vkinit::pipeline_layout_create_info();
 	pipeline_layout_info.pPushConstantRanges = &shadowMapPushConstant;
@@ -1203,9 +1204,24 @@ void VulkanEngine::InitDefaultData()
 	sampl.minFilter = VK_FILTER_LINEAR;
 	vkCreateSampler(_device, &sampl, nullptr, &_defaultSamplerLinear);
 
+
+	sampl.magFilter = VK_FILTER_LINEAR;
+	sampl.minFilter = VK_FILTER_LINEAR;
+	sampl.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	sampl.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	sampl.addressModeV = sampl.addressModeU;
+	sampl.addressModeW = sampl.addressModeU;
+	sampl.mipLodBias = 0.0f;
+	sampl.maxAnisotropy = 1.0f;
+	sampl.minLod = 0.0f;
+	sampl.maxLod = 1.0f;
+	sampl.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+	vkCreateSampler(_device, &sampl, nullptr, &_defaultSamplerDepth);
+
 	_mainDeletionQueue.push_function([&]() {
 		vkDestroySampler(_device, _defaultSamplerNearest, nullptr);
 		vkDestroySampler(_device, _defaultSamplerLinear, nullptr);
+		vkDestroySampler(_device, _defaultSamplerDepth, nullptr);
 	});
 	// LoadScene("../assets/scenes/demo.scn");
 
@@ -1269,7 +1285,7 @@ void VulkanEngine::InitDefaultData()
 
 	loader.Clear();
 	std::vector<glm::mat4> lightSpaceViews;
-	glm::mat4 lightProjection = glm::perspective(glm::radians(90.0f), 1.0f, 100000.0f, 0.1f);
+	glm::mat4 lightProjection = glm::perspective(glm::radians(90.0f), 1.0f, 10000.0f, 0.1f);
 	lightProjection[1][1] *= -1; // flip Y axis
 	lightSpaceViews.push_back(lightProjection);
 	lightSpaceViews.push_back(lookAt(glm::vec3(0, 0, 0), glm::vec3( 1,  0,  0), glm::vec3( 0,  1,  0)));		// right  // +x
@@ -1374,7 +1390,7 @@ void VulkanEngine::LoadScene(const std::string& filePath){
 	{
 		DescriptorWriter writer;
 		for (int i = 0; i < scene->_shadowMapBuffer.size(); i++) {
-			writer.AddImageInfo(0, scene->_shadowMapBuffer[i].imageView, _defaultSamplerNearest, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+			writer.AddImageInfo(0, scene->_shadowMapBuffer[i].imageView, _defaultSamplerDepth, VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		}
 		writer.CommitImageWrite(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		writer.ApplyDescriptorSetUpdates(_device, _shadowMapDescriptors);

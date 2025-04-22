@@ -258,6 +258,7 @@ public:
 	// Default Data
     VkSampler _defaultSamplerLinear;
 	VkSampler _defaultSamplerNearest;
+	VkSampler _defaultSamplerDepth;
 	GPUMeshBuffers rectangle;
 
 	AllocatedBuffer _sphereVertexBuffer;

@@ -6,9 +6,12 @@ The end goal of this engine is to be capable of rendering fog.
 
 # Currently working on
 - Shadow Mapping
-    - TODO Define shadowmap pipelines
-    - TODO Ensure multiview does indeed render to 6 targets
-    
+    - Do some debugging
+        - shadow acne
+        - make sure orientations of shadow maps are correct
+        - depth maps are really weird O_O
+
+
 - Is it really necessary to keep transitioning layouts???
 
 # Current Features
@@ -37,5 +40,6 @@ The end goal of this engine is to be capable of rendering fog.
 - Radix sort of some sort
 - Ray tracing
 - Path tracing?
+- Hot reloading shaders
 
 Boiler-plate/starter code from [https://vkguide.dev/](https://vkguide.dev/)
