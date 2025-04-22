@@ -176,13 +176,23 @@ void VulkanEngine::Draw()
 		VkUtil::TransitionImage(cmd, _normalImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		VkUtil::TransitionImage(cmd, _albedoImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		VkUtil::TransitionImage(cmd, _depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
-	
+		
 		DrawGeometry(cmd);
-	
+
+		for (uint32_t i = 0; i < scene->_shadowMapCount; i++) {
+			VkUtil::TransitionImage(cmd, scene->_shadowMapBuffer[i].image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+		}
+
+		DrawDepthPass(cmd);
+
+		//for (uint32_t i = 0; i < scene->_shadowMapCount; i++) {
+		//	VkUtil::TransitionImage(cmd, scene->_shadowMapBuffer[i].image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+		//}
+
 		VkUtil::TransitionImage(cmd, _positionImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
 		VkUtil::TransitionImage(cmd, _normalImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
 		VkUtil::TransitionImage(cmd, _albedoImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
-	
+		
 		DrawLightingPass(cmd);
 		
 		if (scene->_hasPointLights){
@@ -389,7 +399,6 @@ void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
 	scissor.extent.height = viewport.height;
 
 	vkCmdSetScissor(cmd, 0, 1, &scissor);
-
 	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _geometryPassPipeline);
 
 	// bind buffers
@@ -401,6 +410,54 @@ void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
 	vkCmdBindIndexBuffer(cmd, scene->_modelBuffers.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 	vkCmdDrawIndexedIndirect(cmd, scene->_modelBuffers.drawCmdBuffer.buffer, 0, scene->_modelData->drawCmdBufferVec.size(), sizeof(VkDrawIndexedIndirectCommand));
 	vkCmdEndRenderingKHR(cmd);
+}
+
+void VulkanEngine::DrawDepthPass(VkCommandBuffer cmd){
+	for (int shadowMapIdx = 0; shadowMapIdx < scene->_shadowMapCount; shadowMapIdx++){
+	//begin a render pass  connected to our draw image
+		VkRenderingAttachmentInfo depthAttachment = vkinit::depth_attachment_info(scene->_shadowMapBuffer[shadowMapIdx].imageView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+
+		VkRenderingInfo renderInfo = vkinit::rendering_info(scene->_shadowMapExtent, nullptr, 0, &depthAttachment);
+		renderInfo.layerCount = scene->_shadowMapLayers;
+		renderInfo.viewMask = 0b111111;
+		vkCmdBeginRenderingKHR(cmd, &renderInfo);
+
+		//set dynamic viewport and scissor
+		VkViewport viewport = {};
+		viewport.x = 0;
+		viewport.y = 0;
+		viewport.width = scene->_shadowMapExtent.width;
+		viewport.height = scene->_shadowMapExtent.height;
+		viewport.minDepth = 0.f;
+		viewport.maxDepth = 1.f;
+
+		vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+		VkRect2D scissor = {};
+		scissor.offset.x = 0;
+		scissor.offset.y = 0;
+		scissor.extent.width = viewport.width;
+		scissor.extent.height = viewport.height;
+
+		vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+		uint32_t shadowMapPushConstants[4] = {shadowMapIdx, shadowMapIdx, shadowMapIdx, shadowMapIdx};
+	
+		vkCmdPushConstants(cmd, _depthPassPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(uint32_t) * 4, shadowMapPushConstants);
+
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _depthPassPipeline);
+
+		// bind buffers
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _depthPassPipelineLayout, 0, 1, &_gpuSceneDataDescriptors, 0, nullptr);	
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _depthPassPipelineLayout, 1, 1, &_vertexDescriptors, 0, nullptr);
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _depthPassPipelineLayout, 2, 1, &_geometryPassDescriptors, 0, nullptr);
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _depthPassPipelineLayout, 3, 1, &_depthPassDescriptors, 0, nullptr);
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _depthPassPipelineLayout, 4, 1, &_lightingDataDescriptors, 0, nullptr);
+
+		vkCmdBindIndexBuffer(cmd, scene->_modelBuffers.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+		vkCmdDrawIndexedIndirect(cmd, scene->_modelBuffers.drawCmdBuffer.buffer, 0, scene->_modelData->drawCmdBufferVec.size(), sizeof(VkDrawIndexedIndirectCommand));
+		vkCmdEndRenderingKHR(cmd);	
+	}
 }
 
 void VulkanEngine::DrawLightingPass(VkCommandBuffer cmd)
@@ -417,6 +474,8 @@ void VulkanEngine::DrawLightingPass(VkCommandBuffer cmd)
 	// execute the compute pipeline dispatch. We are using 16x16 workgroup size so we need to divide by it
 	vkCmdDispatch(cmd, std::ceil(_drawExtent.width / 16.0), std::ceil(_drawExtent.height / 16.0), 1);
 }
+
+
 
 void VulkanEngine::HandleKeyboardInput(const SDL_KeyboardEvent& key)
 {
@@ -646,13 +705,14 @@ void VulkanEngine::DestroyBuffer(const AllocatedBuffer& buffer)
 	vmaDestroyBuffer(_allocator, buffer.buffer, buffer.allocation);
 }
 
-AllocatedImage VulkanEngine::CreateImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped)
+AllocatedImage VulkanEngine::CreateImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped, uint32_t arrayLayers)
 {
 	AllocatedImage newImage;
 	newImage.imageFormat = format;
 	newImage.imageExtent = size;
 
 	VkImageCreateInfo img_info = vkinit::image_create_info(format, usage, size);
+	img_info.arrayLayers = arrayLayers;
 	if (mipmapped) {
 		img_info.mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(size.width, size.height)))) + 1;
 	}
@@ -675,6 +735,11 @@ AllocatedImage VulkanEngine::CreateImage(VkExtent3D size, VkFormat format, VkIma
 	// build a image-view for the image
 	VkImageViewCreateInfo view_info = vkinit::imageview_create_info(format, newImage.image, aspectFlag);
 	view_info.subresourceRange.levelCount = img_info.mipLevels;
+
+	if (arrayLayers > 1){
+		view_info.subresourceRange.layerCount = img_info.arrayLayers;
+		view_info.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;		
+	}
 
 	VK_CHECK(vkCreateImageView(_device, &view_info, nullptr, &newImage.imageView));
 

@@ -24,14 +24,59 @@ struct PointLight {
     float intensity;
 };
 
+
 layout(set = 3, binding = 0) buffer readonly LightLengthBuffer{
     uint pointLightBufferLength;
 };
 
-
 layout(set = 3, binding = 1) buffer readonly PointLightBuffer{
     PointLight pointLights[];
 };
+
+
+// layout(set = 4, binding = 0) uniform sampler2D shadowMaps[][6];
+
+
+const vec3 colors[6] = {
+    vec3(1.0, 0.0, 0.0), // red
+    vec3(0.0, 1.0, 0.0), // green
+    vec3(0.0, 0.0, 1.0), // blue
+    vec3(0.0, 1.0, 1.0), // cyan
+    vec3(1.0, 0.0, 1.0), // magenta
+    vec3(1.0, 1.0, 0.0)  // yellow
+};
+
+struct ShadowMapData {
+    uint shadowMapIdx;
+    vec2 shadowMapUV;
+}
+
+ShadowMapData selectShadowMapIdx(vec3 lightToFrag)
+{
+    ShadowMapData ret {};
+
+    vec3 absLightDir = abs(lightToFrag);
+    if (absLightDir.x > absLightDir.y && absLightDir.x > absLightDir.z)
+    {
+        ret.shadowMapIdx = (lightToFrag.x > 0.0) ? 0 : 2;
+        ret.shadowMapUV = vec2(lightToFrag.y, lightToFrag.z) / absLightDir.x;
+    }
+    else if (absLightDir.y > absLightDir.x && absLightDir.y > absLightDir.z)
+    {
+        ret.shadowMapIdx = (lightToFrag.y > 0.0) ? 4 : 5;
+        ret.shadowMapUV = vec2(lightToFrag.x, lightToFrag.z) / absLightDir.y;
+    }
+    else if (absLightDir.z > absLightDir.x && absLightDir.z > absLightDir.y)
+    {
+        ret.shadowMapIdx = (lightToFrag.z > 0.0) ? 1 : 3;
+        ret.shadowMapUV = vec2(lightToFrag.x, lightToFrag.y) / absLightDir.z;
+    }
+    
+
+    return ret;
+}
+
+
 
 void main() 
 {
@@ -64,7 +109,12 @@ void main()
             float f_window = pow(max(1 - pow((dist/light.radius), 4), 0.0), 2.0);
 
             float NdL = max(dot(normal, lightDir), 0.0);
-            outColor +=  NdL * albedo.rgb * light.color * light.intensity * f_window * c_light;
+
+            ShadowMapData selectedShadowMap = selectShadowMapIdx(-lightDir);
+            uint colorIdx = selectedShadowMap.shadowMapIdx;
+            vec2 shadowMapUV = selectedShadowMap.shadowMapUV * 0.5 + 0.5;
+            vec3 shadowMapColor = colors[colorIdx];
+            outColor +=  NdL * albedo.rgb * shadowMapColor * light.intensity * f_window * c_light;
 
             // outColor = vec3(1.0, 0.0, 0.0); 
         }

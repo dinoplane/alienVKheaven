@@ -31,6 +31,12 @@ void PipelineBuilder::Clear()
 }
 //< pipe_clear
 
+void PipelineBuilder::SetViewMask(uint32_t viewMask)
+{
+    _renderInfo.viewMask = viewMask;
+}
+//> set_depth
+
 //> build_pipeline_1
 VkPipeline PipelineBuilder::BuildPipeline(VkDevice device)
 {
@@ -44,7 +50,10 @@ VkPipeline PipelineBuilder::BuildPipeline(VkDevice device)
     viewportState.scissorCount = 1;
 
     _renderInfo.colorAttachmentCount = _colorAttachmentFormatVec.size();
-    _renderInfo.pColorAttachmentFormats = _colorAttachmentFormatVec.data();
+    if (_renderInfo.colorAttachmentCount > 0)
+        _renderInfo.pColorAttachmentFormats = _colorAttachmentFormatVec.data();
+    else
+        _renderInfo.pColorAttachmentFormats = nullptr;
 
     // setup dummy color blending. We arent using transparent objects yet
     // the blending is just "no blend", but we do write to the color attachment

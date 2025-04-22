@@ -156,6 +156,9 @@ public:
 	VkPipelineLayout _geometryPassPipelineLayout;
 	VkPipeline _geometryPassPipeline;
 
+	VkPipelineLayout _depthPassPipelineLayout;
+	VkPipeline _depthPassPipeline;
+
 	// Compute 
 	VkPipelineLayout _lightingPassPipelineLayout;
 	VkPipeline _lightingPassPipeline;
@@ -213,6 +216,9 @@ public:
 	VkDescriptorSetLayout _geometryPassDescriptorLayout;
 	VkDescriptorSet _geometryPassDescriptors;
 
+	VkDescriptorSetLayout _depthPassDescriptorLayout;
+	VkDescriptorSet _depthPassDescriptors;
+
 	VkDescriptorSetLayout _lightingDataDescriptorLayout;
 	VkDescriptorSet _lightingDataDescriptors;
 
@@ -234,6 +240,10 @@ public:
 	VkDescriptorSetLayout _drawImageDescriptorLayout;
 	VkDescriptorSet _drawImageDescriptors;
 
+	VkDescriptorSetLayout _shadowMapDescriptorLayout;
+	VkDescriptorSet _shadowMapDescriptors;
+	
+
 	// immediate submit structures
 	VkFence _immFence;
 	VkCommandBuffer _immCommandBuffer;
@@ -253,6 +263,8 @@ public:
 	AllocatedBuffer _sphereVertexBuffer;
 	AllocatedBuffer _sphereIndexBuffer;
 	uint32_t _sphereIndexCount;
+
+	AllocatedBuffer _lightSpaceMatrixBuffer;
 
 	// UI
 	VulkanEngineUIState engineUIState;
@@ -305,7 +317,7 @@ public:
 
 	// Helper functions that allocate resources on device
 	AllocatedBuffer CreateBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
-	AllocatedImage CreateImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
+	AllocatedImage CreateImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false, uint32_t arrayLayers = 1);
 	AllocatedImage CreateImage(void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
 	AllocatedImage CreateCubeMap(void** data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
 	void DestroyBuffer(const AllocatedBuffer& buffer);
@@ -330,7 +342,7 @@ private:
 	void InitGeometryPassPipeline();
 	void InitSkyBoxPassPipeline();
 	void InitLightingPassPipeline();
-	// void InitShadowPassPipeline();
+	void InitDepthPassPipeline();
 	void InitDebugPassPipeline();
 
 
@@ -341,6 +353,7 @@ private:
 	void DrawSkyBoxPass(VkCommandBuffer cmd);
 	void DrawGeometry(VkCommandBuffer cmd);
 	void DrawLightingPass(VkCommandBuffer cmd);
+	void DrawDepthPass(VkCommandBuffer cmd);
 	void DrawDebugPass(VkCommandBuffer cmd);
 	void DrawImgui(VkCommandBuffer cmd, VkImageView targetImageView);
 

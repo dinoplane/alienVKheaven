@@ -17,6 +17,12 @@ void Scene::ClearAll() {
     _engine->DestroyBuffer(_lightSizeDataBuffer);
     _engine->DestroyBuffer(_lightTransformBuffer);
     _engine->DestroyBuffer(_debugDrawCmdBuffer);
+
+    for (const AllocatedImage& shadowMap : _shadowMapBuffer) {
+        _engine->DestroyImage(shadowMap);
+    }
+    _shadowMapBuffer.clear();
+
     _hasPointLights = false;
     _debugDrawCount = 0;
 }

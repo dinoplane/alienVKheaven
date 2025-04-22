@@ -295,7 +295,7 @@ bool Loader::LoadGltfMesh(const fastgltf::Asset& gltfAsset, const fastgltf::Mesh
 }
 
 //TODO:  kinda dont like doing this but it is what it is. Find a solution to make this loader more independent later.
-bool Loader::LoadGltfImage(VulkanEngine* engine,const std::string rootFilePath,  const fastgltf::Asset& gltfAsset,  const fastgltf::Image& image, LoadedGLTF* outModel, AllocatedImage* outImage) {
+bool Loader::LoadGltfImage(VulkanEngine* engine, const std::string rootFilePath,  const fastgltf::Asset& gltfAsset,  const fastgltf::Image& image, LoadedGLTF* outModel, AllocatedImage* outImage) {
     auto getLevelCount = [](int width, int height) -> uint32_t {
         return static_cast<uint32_t>(1 + floor(log2(width > height ? width : height)));
     };

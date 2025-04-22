@@ -33,6 +33,9 @@ public:
 
     void AddColorAttachment(VkFormat format, VkPipelineColorBlendAttachmentState blendState);
 	void SetDepthFormat(VkFormat format);
+    void SetViewMask(uint32_t viewMask);
+    
+    //> depth_disable
 	void DisableDepthTest();
     void EnableDepthTest(bool depthWriteEnable,VkCompareOp op);
 };

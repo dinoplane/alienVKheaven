@@ -4,6 +4,13 @@
 AlienVkHeaven is a hobby engine capable of loading scenes (similar to the Quake map format) and GLTF models. 
 The end goal of this engine is to be capable of rendering fog. 
 
+# Currently working on
+- Shadow Mapping
+    - TODO Define shadowmap pipelines
+    - TODO Ensure multiview does indeed render to 6 targets
+    
+- Is it really necessary to keep transitioning layouts???
+
 # Current Features
 - GLTF Model Loading / Texturing
 - Multi-Draw Indirect
@@ -12,6 +19,8 @@ The end goal of this engine is to be capable of rendering fog.
 - GPU Instancing
 - Lighting
 - Scene Reloading
+
+
 
 
 # Anticipated Features

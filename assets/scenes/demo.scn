@@ -1,13 +1,13 @@
 {
 "classname" "model"
-"origin" "0 1 0"
+"origin" "-2 0 0"
 "angles" "0 90 0"
 "scale" "0.5 0.5 0.5"
 "path" "../assets/models/fumo/scene.gltf"
 }
 {
 "classname" "model"
-"origin" "0 -2.3 0"
+"origin" "0 -6.3 0"
 "angles" "0 0 0"
 "scale" "10 10 10"
 "path" "../assets/models/table/scene.gltf"
@@ -23,15 +23,51 @@
 }
 {
 "classname" "model"
-"origin" "3.7 1.6 1.5"
+"origin" "3.7 0 1.5"
 "angles" "0 0 0"
 "scale" "0.1 0.1 0.1"
 "path" "../assets/models/earth/scene.gltf"
 }
 {
 "classname" "model"
-"origin" "0 1.5 -1.5"
+"origin" "0 0 -1.5"
 "angles" "0 0 0"
 "scale" "0.005 0.005 0.005"
 "path" "../assets/models/asteroid_01/scene.gltf"
 }
+{
+"classname" "model"
+"origin" "2 0.5 0"
+"angles" "0 -90 0"
+"scale" "0.1 0.1 0.1"
+"path" "../assets/models/cactuar/scene.gltf"
+}
+{
+"classname" "point_light"
+"origin" "0 0 0"
+"radius" "10.0"
+"color" "1.0 1.0 1.0"
+"intensity" "0.1"
+}
+{
+"classname" "model"
+"origin" "0 2.0 0"
+"angles" "0 -90 0"
+"scale" "0.5 0.5 0.5"
+"path" "../assets/models/DamagedHelmet/glTF/DamagedHelmet.gltf
+}
+{
+"classname" "model"
+"origin" "0 -2.0 0"
+"angles" "0 0 0"
+"scale" "0.5 0.5 0.5"
+"path" "../assets/models/DamagedHelmet/glTF/DamagedHelmet.gltf
+}
+{
+"classname" "model"
+"origin" "0 0 0"
+"angles" "0 0 0"
+"scale" "1 1 1"
+"path" "../assets/models/inverted_square.glb
+}
+

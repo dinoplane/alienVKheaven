@@ -87,6 +87,7 @@ void VulkanEngine::InitVulkan()
 
 	VkPhysicalDeviceVulkan11Features features11{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};	
 	features11.shaderDrawParameters = true;
+	features11.multiview = true;
 	
 	
 
@@ -418,7 +419,7 @@ void VulkanEngine::InitDescriptors()
 		builder.AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER); // light size buffer
 		builder.AddBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER); // pointlight buffer
 		
-		_lightingDataDescriptorLayout = builder.BuildLayout(_device, VK_SHADER_STAGE_COMPUTE_BIT); // TODO: gonna need to change this later
+		_lightingDataDescriptorLayout = builder.BuildLayout(_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT); // TODO: gonna need to change this later
 	}
 	_lightingDataDescriptors = globalDescriptorAllocator.Allocate(_device, _lightingDataDescriptorLayout);
 
@@ -446,7 +447,7 @@ void VulkanEngine::InitDescriptors()
 		VkDescriptorSetLayoutBinding layoutBinding{};
 		layoutBinding.binding = 0u;
 		layoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		layoutBinding.descriptorCount = 100;
+		layoutBinding.descriptorCount = 100; // TODO Figure out if this means that I can only have 100 textures bounded at the same time
 		layoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 	
 		VkDescriptorBindingFlags bindFlag = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT;
@@ -476,6 +477,42 @@ void VulkanEngine::InitDescriptors()
         _postProcessPassDescriptorLayout = builder.BuildLayout(_device, VK_SHADER_STAGE_COMPUTE_BIT);
     }
     _postProcessPassDescriptors = globalDescriptorAllocator.Allocate(_device, _postProcessPassDescriptorLayout);
+
+
+	{ // depth pass descriptors
+		DescriptorLayoutBuilder builder;
+		builder.AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER); // light space transforms;
+		_depthPassDescriptorLayout = builder.BuildLayout(_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT);
+	}
+	_depthPassDescriptors = globalDescriptorAllocator.Allocate(_device, _depthPassDescriptorLayout);
+
+
+	{ // geometry textures descriptors
+		// update these values to be useful for your specific use case
+		VkDescriptorSetLayoutBinding layoutBinding{};
+		layoutBinding.binding = 0u;
+		layoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		layoutBinding.descriptorCount = 100; // TODO Figure out if this means that I can only have 100 textures bounded at the same time
+		layoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	
+		VkDescriptorBindingFlags bindFlag = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT;
+	
+		VkDescriptorSetLayoutBindingFlagsCreateInfo extendedInfo{};
+		extendedInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+		extendedInfo.pNext = nullptr;
+		extendedInfo.bindingCount = 1u;
+		extendedInfo.pBindingFlags = &bindFlag;
+	
+		VkDescriptorSetLayoutCreateInfo layoutInfo{};
+		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+		layoutInfo.pNext = &extendedInfo;
+		layoutInfo.flags = 0;
+		layoutInfo.bindingCount = 1u;
+		layoutInfo.pBindings = &layoutBinding;
+	
+		vkCreateDescriptorSetLayout(_device, &layoutInfo, nullptr, &_shadowMapDescriptorLayout);
+	}
+	_shadowMapDescriptors = globalDescriptorAllocator.Allocate(_device, _shadowMapDescriptorLayout);
 
 
 	// {
@@ -544,6 +581,8 @@ void VulkanEngine::InitDescriptors()
 		vkDestroyDescriptorSetLayout(_device, _deferredPassDescriptorLayout, nullptr);
 		vkDestroyDescriptorSetLayout(_device, _texturesDescriptorLayout, nullptr);
 		vkDestroyDescriptorSetLayout(_device, _debugPassDescriptorLayout, nullptr);
+		vkDestroyDescriptorSetLayout(_device, _depthPassDescriptorLayout, nullptr);
+		vkDestroyDescriptorSetLayout(_device, _shadowMapDescriptorLayout, nullptr);
 	});
 
 	{
@@ -870,6 +909,84 @@ void VulkanEngine::InitLightingPassPipeline(){
     });
 }
 
+void VulkanEngine::InitDepthPassPipeline(){
+
+	VkShaderModule triangleFragShader;
+	if (!VkUtil::LoadShaderModule("../shaders/depth_pass.frag.spv", _device, &triangleFragShader)) {
+		fmt::print("Error when building the fragment shader \n");
+	}
+	else {
+		fmt::print("Triangle fragment shader succesfully loaded \n");
+	}
+
+	VkShaderModule triangleVertexShader;
+	if (!VkUtil::LoadShaderModule("../shaders/depth_pass.vert.spv", _device, &triangleVertexShader)) {
+		fmt::print("Error when building the vertex shader \n");
+	}
+	else {
+		fmt::print("Triangle vertex shader succesfully loaded \n");
+	}
+
+	// VkPushConstantRange bufferRange{};
+	// bufferRange.offset = 0;
+	// bufferRange.size = sizeof(GPUDrawPushConstants);
+	// bufferRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
+
+	std::vector<VkDescriptorSetLayout> tmpLayoutVec;
+	tmpLayoutVec.push_back(_gpuSceneDataDescriptorLayout);
+	tmpLayoutVec.push_back(_vertexDescriptorLayout);
+	tmpLayoutVec.push_back(_geometryPassDescriptorLayout);
+	tmpLayoutVec.push_back(_depthPassDescriptorLayout);
+	tmpLayoutVec.push_back(_lightingDataDescriptorLayout);
+
+	//setup push constants
+	VkPushConstantRange shadowMapPushConstant;
+	shadowMapPushConstant.offset = 0;
+	shadowMapPushConstant.size = sizeof(uint32_t) * 4;
+	shadowMapPushConstant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+	VkPipelineLayoutCreateInfo pipeline_layout_info = vkinit::pipeline_layout_create_info();
+	pipeline_layout_info.pPushConstantRanges = &shadowMapPushConstant;
+	pipeline_layout_info.pushConstantRangeCount = 1;
+	pipeline_layout_info.pSetLayouts = tmpLayoutVec.data();
+	pipeline_layout_info.setLayoutCount = tmpLayoutVec.size();
+	VK_CHECK(vkCreatePipelineLayout(_device, &pipeline_layout_info, nullptr, &_depthPassPipelineLayout));
+
+	//exactly same as above but with the depth testing set
+	PipelineBuilder pipelineBuilder;
+
+	//use the triangle layout we created
+	pipelineBuilder._pipelineLayout = _depthPassPipelineLayout;
+	pipelineBuilder.SetShaders(triangleVertexShader, triangleFragShader);
+	pipelineBuilder.SetInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+	pipelineBuilder.SetPolygonMode(VK_POLYGON_MODE_FILL);
+	pipelineBuilder.SetCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
+	pipelineBuilder.SetMultiSamplingNone();
+	// pipelineBuilder.enable_blending_additive();
+
+	pipelineBuilder.EnableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+
+	//connect the image format we will draw into, from draw image
+
+	// pipelineBuilder.AddColorAttachment(_drawImage.imageFormat,PipelineBuilder::enable_blending_alphablend());
+	// pipelineBuilder.AddColorAttachment(_positionImage.imageFormat, PipelineBuilder::EnableBlendingAlphablend());
+	// pipelineBuilder.AddColorAttachment(_normalImage.imageFormat, PipelineBuilder::EnableBlendingAlphablend());
+	// pipelineBuilder.AddColorAttachment(_albedoImage.imageFormat, PipelineBuilder::EnableBlendingAlphablend());
+	pipelineBuilder.SetDepthFormat(_depthImage.imageFormat);
+	pipelineBuilder.SetViewMask(0b111111);
+
+	//finally build the pipeline
+	_depthPassPipeline = pipelineBuilder.BuildPipeline(_device);
+
+	vkDestroyShaderModule(_device, triangleFragShader, nullptr);
+	vkDestroyShaderModule(_device, triangleVertexShader, nullptr);
+
+	_mainDeletionQueue.push_function([&]() {
+		vkDestroyPipelineLayout(_device, _depthPassPipelineLayout, nullptr);
+		vkDestroyPipeline(_device, _depthPassPipeline, nullptr);
+	});
+}
+
 void VulkanEngine::InitDebugPassPipeline(){
 	VkShaderModule triangleFragShader;
 	if (!VkUtil::LoadShaderModule("../shaders/debug.frag.spv", _device, &triangleFragShader)) {
@@ -940,6 +1057,7 @@ void VulkanEngine::InitGraphicsPipelines()
 	InitSkyBoxPassPipeline();
 	InitLightingPassPipeline();
 	InitDebugPassPipeline();
+	InitDepthPassPipeline();
 	
 	
 
@@ -1076,7 +1194,7 @@ void VulkanEngine::InitDefaultData()
 	VkSamplerCreateInfo sampl = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 
 	sampl.magFilter = VK_FILTER_NEAREST;
-	sampl.minFilter = VK_FILTER_NEAREST;
+	sampl.minFilter = VK_FILTER_NEAREST;		
 
 	vkCreateSampler(_device, &sampl, nullptr, &_defaultSamplerNearest);
 
@@ -1102,7 +1220,6 @@ void VulkanEngine::InitDefaultData()
 	Loader loader;
 	loader.Init(this);
 	loader.AddBuffer(sizeof(glm::vec4) * skyBoxVertices.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT| VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY, skyBoxVertices.data());
-	
 	loader.AddBuffer(sizeof(uint32_t) * skyBoxIndices.size(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY, skyBoxIndices.data());
 	std::vector<AllocatedBuffer> buffers = loader.UploadBuffers();
 
@@ -1147,6 +1264,36 @@ void VulkanEngine::InitDefaultData()
 		DestroyBuffer(_sphereVertexBuffer);
 		DestroyBuffer(_sphereIndexBuffer);
 	});
+
+
+	loader.Clear();
+	std::vector<glm::mat4> lightSpaceViews;
+	glm::mat4 lightProjection = glm::perspective(glm::radians(90.0f), 1.0f, 100000.0f, 0.1f);
+	lightProjection[1][1] *= -1; // flip Y axis
+	lightSpaceViews.push_back(lightProjection);
+	lightSpaceViews.push_back(lookAt(glm::vec3(0, 0, 0), glm::vec3( 1,  0,  0), glm::vec3( 0,  1,  0)));		// right  // +x
+	lightSpaceViews.push_back(lookAt(glm::vec3(0, 0, 0), glm::vec3( 0,  0,  1), glm::vec3( 0,  1,  0)));		// front  // +z
+	lightSpaceViews.push_back(lookAt(glm::vec3(0, 0, 0), glm::vec3(-1,  0,  0), glm::vec3( 0,  1,  0)));		// left   // -x
+	lightSpaceViews.push_back(lookAt(glm::vec3(0, 0, 0), glm::vec3( 0,  0, -1), glm::vec3( 0,  1,  0)));		// back   // -z
+	lightSpaceViews.push_back(lookAt(glm::vec3(0, 0, 0), glm::vec3( 0,  1,  0), glm::vec3( 0,  0, -1)));		// top    // +y
+	lightSpaceViews.push_back(lookAt(glm::vec3(0, 0, 0), glm::vec3( 0, -1,  0), glm::vec3( 0,  0,  1)));		// bottom // -y
+
+
+	loader.AddBuffer(sizeof(glm::mat4) * 7, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY, lightSpaceViews.data());
+	buffers = loader.UploadBuffers();
+	_lightSpaceMatrixBuffer = buffers[0];
+	
+	{
+		DescriptorWriter writer;
+		writer.WriteBuffer(0, _lightSpaceMatrixBuffer.buffer, sizeof(glm::mat4) * 7, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		writer.ApplyDescriptorSetUpdates(_device, _depthPassDescriptors);
+	}
+	_mainDeletionQueue.push_function([&]() {
+		DestroyBuffer(_lightSpaceMatrixBuffer);
+	});
+
+
+
 }
 
 void VulkanEngine::LoadScene(const std::string& filePath){
@@ -1222,6 +1369,17 @@ void VulkanEngine::LoadScene(const std::string& filePath){
 			numPointLights * sizeof(glm::mat4), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 		writer.ApplyDescriptorSetUpdates(_device, _debugPassDescriptors);
 	}
+
+	{
+		DescriptorWriter writer;
+		for (int i = 0; i < scene->_shadowMapBuffer.size(); i++) {
+			writer.AddImageInfo(0, scene->_shadowMapBuffer[i].imageView, _defaultSamplerNearest, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		}
+		writer.CommitImageWrite(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		writer.ApplyDescriptorSetUpdates(_device, _shadowMapDescriptors);
+	}
+
+
 
 	isSceneLoaded = true;
 }

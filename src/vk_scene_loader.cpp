@@ -130,11 +130,31 @@ void SceneLoader::LoadPointLights(VulkanEngine* engine, Scene* scene,
     loader.AddBuffer(sizeof(glm::mat4) * lightTransforms->size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY, lightTransforms->data());
     loader.AddBuffer(sizeof(VkDrawIndexedIndirectCommand) * debugDrawCmdBufferVec->size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY, debugDrawCmdBufferVec->data());
 
+    // For omni directional shadows, we know how many lights we have, so we know how many textures to create
+    // To keep things flexible, we will not use cube maps for point lights, but rather use 6 512 x 512 textures
+
+    const uint32_t shadowMapWidth = 512;
+    scene->_shadowMapCount = pointLights->size();
+    scene->_shadowMapExtent = VkExtent2D{ shadowMapWidth, shadowMapWidth };
+    scene->_shadowMapLayers = 6; // TODO: use a layered image instead of 6 images
+
+    for (int i = 0; i < scene->_shadowMapCount; ++i) { // TODO: use a layered image instead of 6 images
+        AllocatedImage shadowMap = engine->CreateImage(
+                                                    VkExtent3D{ shadowMapWidth, shadowMapWidth, 1 }, 
+                                                    VK_FORMAT_D32_SFLOAT, 
+                                                    VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, 
+                                                    false, 
+                                                    scene->_shadowMapLayers);
+        scene->_shadowMapBuffer.push_back(shadowMap);
+    }
+
     std::vector<AllocatedBuffer> buffers = loader.UploadBuffers();
     scene->_pointLightBuffer = buffers[0];
     scene->_lightSizeDataBuffer = buffers[1];
     scene->_lightTransformBuffer = buffers[2];
     scene->_debugDrawCmdBuffer = buffers[3];
+
+
 
 }
 
