@@ -2,6 +2,10 @@
 #pragma once 
 
 namespace VkUtil {
+	// struct BarrierEmitter {
+
+	// }
+
 	// Transitions image layouts from oldLayout to newLayout using the given command buffer
 	void TransitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout);
 

@@ -7,9 +7,9 @@
 }
 {
 "classname" "model"
-"origin" "0 -6.3 0"
+"origin" "0 -19.3 0"
 "angles" "0 0 0"
-"scale" "10 10 10"
+"scale" "50 50 50"
 "path" "../assets/models/table/scene.gltf"
 }
 {
@@ -44,7 +44,7 @@
 }
 {
 "classname" "point_light"
-"origin" "0 0 0"
+"origin" "0 1.35 0"
 "radius" "10.0"
 "color" "1.0 1.0 1.0"
 "intensity" "0.2"

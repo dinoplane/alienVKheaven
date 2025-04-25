@@ -69,4 +69,7 @@ void VulkanEngineUI::RenderGlobalParamUI(VulkanEngineUIState* engineUIState, Vul
 
     ImGui::SeparatorText("Frame Time");
     ImGui::Text("%.5f", engine->_deltaTime);
+
+    ImGui::SeparatorText("Render Debug Volumes");
+    ImGui::Checkbox("Show Point Lights", &engine->_showDebugVolumes);
 }

@@ -107,11 +107,15 @@ void main()
     vec4 pos = instanceData.modelMatrices[gl_InstanceIndex] * nodeTransform * vec4(v.position, 1.0f);
 
     mat4 lightSpaceView = lightSpaceMatricesData.lightSpaceMatrices[gl_ViewIndex];
-    lightSpaceView[3] = vec4(pointLights[PushConstants.shadowMapIdx].position, 1.0f);
+    mat4 translate = mat4(1.0f);
+    translate[3][0] = -pointLights[PushConstants.shadowMapIdx].position.x;
+    translate[3][1] = -pointLights[PushConstants.shadowMapIdx].position.y;
+    translate[3][2] = -pointLights[PushConstants.shadowMapIdx].position.z;
+    // lightSpaceView[3] = vec4(-pointLights[PushConstants.shadowMapIdx].position, 1.0f);
 
     mat4 lightSpaceProjection = lightSpaceMatricesData.lightProjectionMatrix;
     outPosition = pos.xyz;
 
-	gl_Position =  lightSpaceProjection * lightSpaceView * pos;
+	gl_Position =  lightSpaceProjection * lightSpaceView * translate * pos;
 }
 //< all

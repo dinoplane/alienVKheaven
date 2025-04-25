@@ -1285,7 +1285,7 @@ void VulkanEngine::InitDefaultData()
 
 	loader.Clear();
 	std::vector<glm::mat4> lightSpaceViews;
-	glm::mat4 lightProjection = glm::perspective(glm::radians(90.0f), 1.0f, 10000.0f, 0.1f);
+	glm::mat4 lightProjection = glm::perspective(glm::radians(90.0f), 1.0f, 100.0f, 0.1f);
 	lightProjection[1][1] *= -1; // flip Y axis
 	lightSpaceViews.push_back(lightProjection);
 	lightSpaceViews.push_back(lookAt(glm::vec3(0, 0, 0), glm::vec3( 1,  0,  0), glm::vec3( 0,  1,  0)));		// right  // +x
@@ -1383,7 +1383,7 @@ void VulkanEngine::LoadScene(const std::string& filePath){
 	{
 		DescriptorWriter writer;
 		writer.WriteBuffer(1, scene->_lightTransformBuffer.buffer,
-			numPointLights * sizeof(glm::mat4), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+			numPointLights * sizeof(glm::mat4) * 2, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 		writer.ApplyDescriptorSetUpdates(_device, _debugPassDescriptors);
 	}
 

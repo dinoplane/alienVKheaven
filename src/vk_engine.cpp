@@ -213,7 +213,7 @@ void VulkanEngine::Draw()
 		
 		DrawLightingPass(cmd);
 		
-		if (scene->_hasPointLights){
+		if (scene->_hasPointLights && _showDebugVolumes){
 			VkUtil::TransitionImage(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 			DrawDebugPass(cmd);
 			VkUtil::TransitionImage(cmd, _drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);

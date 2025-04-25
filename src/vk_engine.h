@@ -269,6 +269,7 @@ public:
 
 	// UI
 	VulkanEngineUIState engineUIState;
+	bool _showDebugVolumes {false};
 
 	// Scene
 	std::shared_ptr<Scene> scene;

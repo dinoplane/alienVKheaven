@@ -78,6 +78,7 @@ void SceneLoader::LoadScene(const SceneData& sceneData, Scene* scene, VulkanEngi
                 pointLight.radius = entityData.lightData.radius;
                 pointLights.push_back(pointLight);
                 lightTransforms.push_back(entityData.transform.GetModelMatrix());
+                lightTransforms.push_back(entityData.transform.translation * glm::scale(glm::vec3(0.5f))); // for debug draw
             } break;
 
             default:
@@ -102,7 +103,7 @@ void SceneLoader::LoadPointLights(VulkanEngine* engine, Scene* scene,
     // Create debug draw commands
     struct VkDrawIndexedIndirectCommand debugPointLightCmd;
     debugPointLightCmd.firstInstance = 0;
-    debugPointLightCmd.instanceCount = pointLights->size();
+    debugPointLightCmd.instanceCount = pointLights->size() * 2;
     debugPointLightCmd.firstIndex = 0;
     debugPointLightCmd.vertexOffset = 0;
     debugPointLightCmd.indexCount = engine->_sphereIndexCount; // This for a sphere
