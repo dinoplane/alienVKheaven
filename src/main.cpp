@@ -7,13 +7,13 @@
 
 
 #undef main
-int main(int argc, char* argv[])
+int main()
 {
 	 VulkanEngine engine;
 
-	 engine.Init();	
-	 engine.Run();	
-	 engine.Cleanup();	
+	  engine.Init();	
+	  engine.Run();	
+	  engine.Cleanup();	
 
     _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_DEBUG); 
     _CrtDumpMemoryLeaks();

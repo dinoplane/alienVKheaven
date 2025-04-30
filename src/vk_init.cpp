@@ -107,6 +107,7 @@ void VulkanEngine::InitVulkan()
 	auto physical_device_selector_return = selector
 		.set_minimum_version(1, 2)
 		// .set_required_features_13(features)
+		.add_required_extension( VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME )
 		 .add_required_extension(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME)
 		 .add_required_extension(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME)
 		 .add_required_extension(VK_KHR_COPY_COMMANDS_2_EXTENSION_NAME)
@@ -1135,6 +1136,9 @@ void VulkanEngine::InitImgui()
 
 	ImGui_ImplVulkan_CreateFontsTexture();
 
+
+
+
 	// add the destroy the imgui created structures
 	_mainDeletionQueue.push_function([=]() {
 		ImGui_ImplVulkan_Shutdown();
@@ -1285,16 +1289,16 @@ void VulkanEngine::InitDefaultData()
 
 	loader.Clear();
 	std::vector<glm::mat4> lightSpaceViews;
-	glm::mat4 lightProjection = glm::perspective(glm::radians(90.0f), 1.0f, 100.0f, 0.1f);
-	lightProjection[1][1] *= -1; // flip Y axis
+	glm::mat4 lightProjection = glm::perspective(glm::radians(90.0f), 1.0f, 5000.0f, 0.1f);
+	lightProjection[1][1] *= -1; // flip Y axis	
 	lightSpaceViews.push_back(lightProjection);
-	lightSpaceViews.push_back(lookAt(glm::vec3(0, 0, 0), glm::vec3( 1,  0,  0), glm::vec3( 0,  1,  0)));		// right  // +x
-	lightSpaceViews.push_back(lookAt(glm::vec3(0, 0, 0), glm::vec3( 0,  0,  1), glm::vec3( 0,  1,  0)));		// front  // +z
-	lightSpaceViews.push_back(lookAt(glm::vec3(0, 0, 0), glm::vec3(-1,  0,  0), glm::vec3( 0,  1,  0)));		// left   // -x
-	lightSpaceViews.push_back(lookAt(glm::vec3(0, 0, 0), glm::vec3( 0,  0, -1), glm::vec3( 0,  1,  0)));		// back   // -z
-	lightSpaceViews.push_back(lookAt(glm::vec3(0, 0, 0), glm::vec3( 0,  1,  0), glm::vec3( 0,  0, -1)));		// top    // +y
-	lightSpaceViews.push_back(lookAt(glm::vec3(0, 0, 0), glm::vec3( 0, -1,  0), glm::vec3( 0,  0,  1)));		// bottom // -y
-
+	lightSpaceViews.push_back(lookAt(glm::vec3(0, 0, 0), glm::vec3( 1,  0,  0), glm::vec3( 0,  1,  0)));		// right  // +x // red
+	lightSpaceViews.push_back(lookAt(glm::vec3(0, 0, 0), glm::vec3( 0,  0,  1), glm::vec3( 0,  1,  0)));		// front  // +z // green
+	lightSpaceViews.push_back(lookAt(glm::vec3(0, 0, 0), glm::vec3(-1,  0,  0), glm::vec3( 0,  1,  0)));		// left   // -x // blue
+	lightSpaceViews.push_back(lookAt(glm::vec3(0, 0, 0), glm::vec3( 0,  0, -1), glm::vec3( 0,  1,  0)));		// back   // -z // cyan
+	lightSpaceViews.push_back(lookAt(glm::vec3(0, 0, 0), glm::vec3( 0,  1,  0), glm::vec3( 0,  0,  1)));		// top    // +y // magenta
+	lightSpaceViews.push_back(lookAt(glm::vec3(0, 0, 0), glm::vec3( 0, -1,  0), glm::vec3( 0,  0, -1)));		// bottom // -y // yellow
+	
 
 	loader.AddBuffer(sizeof(glm::mat4) * 7, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY, lightSpaceViews.data());
 	buffers = loader.UploadBuffers();

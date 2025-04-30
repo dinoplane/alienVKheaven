@@ -45,7 +45,7 @@ layout (set = 5, binding = 0 ) readonly buffer lightSpaceMatricesBuffer {
 
 
 
-const vec3 colors[6] = {
+const vec3 shadowColors[6] = {
     vec3(1.0, 0.0, 0.0), // red
     vec3(0.0, 1.0, 0.0), // green
     vec3(0.0, 0.0, 1.0), // blue
@@ -84,25 +84,25 @@ ShadowMapData selectShadowMapIdx(vec3 lightToFrag)
         if (lightToFrag.y > 0.0)
         {
             ret.shadowMapIdx = 4;
-            ret.shadowMapUV = vec2(lightToFrag.x, lightToFrag.z) / absLightDir.y;
+            ret.shadowMapUV = vec2(lightToFrag.x, -lightToFrag.z) / absLightDir.y;
         }
         else
         {
             ret.shadowMapIdx = 5;
-            ret.shadowMapUV = vec2(lightToFrag.x, -lightToFrag.z) / absLightDir.y;
+            ret.shadowMapUV = vec2(lightToFrag.x, lightToFrag.z) / absLightDir.y;
         }
     }
-    else
+    else    
     {
         if (lightToFrag.z > 0.0)
         {
-            ret.shadowMapIdx = 1;
-            ret.shadowMapUV = vec2(lightToFrag.x, -lightToFrag.y) / absLightDir.z;
+            ret.shadowMapIdx = 1;   
+            ret.shadowMapUV = vec2(-lightToFrag.x, -lightToFrag.y) / absLightDir.z;
         }
         else
         {
             ret.shadowMapIdx = 3;
-            ret.shadowMapUV = vec2(-lightToFrag.x, -lightToFrag.y) / absLightDir.z;
+            ret.shadowMapUV = vec2(lightToFrag.x, -lightToFrag.y) / absLightDir.z;
         }
     }
     
@@ -116,10 +116,14 @@ float CalculateShadowFactor(vec3 lightToFrag, float dist, vec4 fragPos, uint poi
     uint shadowMapIdx = selectedShadowMap.shadowMapIdx;
 
     mat4 lightSpaceView = lightSpaceMatricesData.lightSpaceMatrices[shadowMapIdx];
-    lightSpaceView[3] = vec4(pointLights[pointLightIdx].position, 1.0f);
+    
+    mat4 translate = mat4(1.0f);
+    translate[3][0] = -pointLights[pointLightIdx].position.x;
+    translate[3][1] = -pointLights[pointLightIdx].position.y;
+    translate[3][2] = -pointLights[pointLightIdx].position.z;
 
     mat4 lightSpaceProjection = lightSpaceMatricesData.lightProjectionMatrix;
-    vec4 lightSpacePos = lightSpaceProjection * lightSpaceView * vec4(fragPos.xyz, 1.0f);
+    vec4 lightSpacePos = lightSpaceProjection * lightSpaceView * translate * vec4(fragPos.xyz, 1.0f);
     lightSpacePos /= lightSpacePos.w;
     // lightSpacePos = lightSpacePos * 0.5 + 0.5; // convert from clip space to UV space
 
@@ -162,14 +166,34 @@ void main()
             {
                 continue;
             }
+
+            
+            float NdL = max(dot(normal, lightDir), 0.0);
+            if (NdL == 0.0)
+            {
+                continue;
+            }
+
+
+            float shadowFactor = CalculateShadowFactor(-lightDir, dist, position, pointLightIdx);
+            if (shadowFactor < 0.5)
+            {
+                // ShadowMapData selectedShadowMap = selectShadowMapIdx(-lightDir);
+                // uint shadowMapIdx = selectedShadowMap.shadowMapIdx;
+                // vec3 lightColor = shadowColors[shadowMapIdx];
+                // outColor = lightColor;
+
+                continue;
+            }
+
             float c_light = light.radius*light.radius / (dist*dist + 0.001);
             float f_window = pow(max(1 - pow((dist/light.radius), 4), 0.0), 2.0);
 
-            float NdL = max(dot(normal, lightDir), 0.0);
             // float depth = texture()
-            float shadowFactor = CalculateShadowFactor(-lightDir, dist, position, pointLightIdx);
-            
-            outColor +=  NdL * albedo.rgb * shadowFactor * light.intensity * f_window * c_light;
+
+
+            outColor +=  NdL * albedo.rgb * light.intensity * f_window * c_light;
+
 
         }
         // TODO: Attneuate rthe light correctly, use the formula in rtr book

@@ -43,11 +43,14 @@ void VulkanEngineUI::RenderVulkanEngineUI(VulkanEngineUIState* engineUIState, Vu
 
 void VulkanEngineUI::RenderGlobalParamUI(VulkanEngineUIState* engineUIState, VulkanEngine* engine){
     
+
     ImGui::SeparatorText("Global Parameters");
     ImGui::Text("Light Direction");
     if (ImGui::SliderFloat("Theta", &engineUIState->theta, 0.0f, 360.0f)){
         // fmt::print("Theta: {}\n", engineUIState->theta);
         
+	ImGuiIO& io = ImGui::GetIO();
+	io.ConfigFlags = ImGuiConfigFlags_NavNoCaptureKeyboard; // Enable Keyboard Controls
         engine->sceneUniformData.lightDirection.x = -cos(glm::radians(engineUIState->theta)) * cos(glm::radians(engineUIState->phi));
         engine->sceneUniformData.lightDirection.z = -sin(glm::radians(engineUIState->theta)) * cos(glm::radians(engineUIState->phi));
         engine->sceneUniformData.lightDirection.y = -sin(glm::radians(engineUIState->phi));

@@ -1,4 +1,5 @@
-﻿#include "vk_engine.h"
+﻿#define _CRTDBG_MAP_ALLOC
+#include "vk_engine.h"
 
 
 #include <thread>

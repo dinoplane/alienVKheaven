@@ -2,20 +2,13 @@
 "classname" "model"
 "origin" "0 0 0"
 "angles" "0 0 0"
-"scale" "1 1 1"
+"scale" "2 2 2"
 "path" "../assets/models/sponza/glTF/Sponza.gltf"
 }
 {
 "classname" "point_light"
-"origin" "-3 5 0"
-"radius" "3.0"
-"color" "1.0 1.0 1.0"
-"intensity" "1.0"
-}
-{
-"classname" "point_light"
 "origin" "3 5 0"
-"radius" "5.0"
+"radius" "10.0"
 "color" "1.0 1.0 1.0"
 "intensity" "1.0"
 }
