@@ -117,24 +117,27 @@ float CalculateShadowFactor(vec3 lightToFrag, float dist, vec4 fragPos, uint poi
 
     mat4 lightSpaceView = lightSpaceMatricesData.lightSpaceMatrices[shadowMapIdx];
     
-    mat4 translate = mat4(1.0f);
+    mat4 translate = mat4(1.0);
     translate[3][0] = -pointLights[pointLightIdx].position.x;
     translate[3][1] = -pointLights[pointLightIdx].position.y;
     translate[3][2] = -pointLights[pointLightIdx].position.z;
 
     mat4 lightSpaceProjection = lightSpaceMatricesData.lightProjectionMatrix;
-    vec4 lightSpacePos = lightSpaceProjection * lightSpaceView * translate * vec4(fragPos.xyz, 1.0f);
+    
+    vec4 lightSpacePos =  lightSpaceView * translate * vec4(fragPos.xyz, 1.0);
+    float bias = 0.15;
+    lightSpacePos.z += bias;
+    lightSpacePos = lightSpaceProjection * lightSpacePos;
     lightSpacePos /= lightSpacePos.w;
     // lightSpacePos = lightSpacePos * 0.5 + 0.5; // convert from clip space to UV space
 
 
-    ivec2 shadowMapUV = ivec2((selectedShadowMap.shadowMapUV * 0.5 + 0.5) * 512.0);
+    ivec2 shadowMapUV = ivec2((selectedShadowMap.shadowMapUV * 0.5 + 0.5) * 4096.0);
 
     float closestDepth = texelFetch(shadowMaps[pointLightIdx], ivec3(shadowMapUV, shadowMapIdx), 0).x;
     float currentDepth = lightSpacePos.z;
 
-    float bias = 0.005;
-    float shadow = currentDepth + bias > closestDepth ? 1.0 : 0.0;
+    float shadow = currentDepth > closestDepth ? 1.0 : 0.0;
     return shadow;
 }
 

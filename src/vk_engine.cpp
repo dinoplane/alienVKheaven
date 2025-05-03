@@ -172,7 +172,7 @@ void VulkanEngine::Draw()
 			
 		// 	VkClearDepthStencilValue clearDepthValue;
 		// 	// float flash = std::abs(std::sin(_frameNumber / 120.f));
-		// 	clearValue = { 1.0f, 0.0f };
+		// 	clearDepthValue = { 1.0f, 0 };
 		
 		// 	VkImageSubresourceRange clearDepthRange = vkinit::image_subresource_range(VK_IMAGE_ASPECT_DEPTH_BIT);
 			
@@ -435,6 +435,7 @@ void VulkanEngine::DrawDepthPass(VkCommandBuffer cmd){
 	for (int shadowMapIdx = 0; shadowMapIdx < scene->_shadowMapCount; shadowMapIdx++){
 	//begin a render pass  connected to our draw image
 		VkRenderingAttachmentInfo depthAttachment = vkinit::depth_attachment_info(scene->_shadowMapBuffer[shadowMapIdx].imageView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+		// depthAttachment.clearValue.depthStencil = { 1.0f, 0 };
 
 		VkRenderingInfo renderInfo = vkinit::rendering_info(scene->_shadowMapExtent, nullptr, 0, &depthAttachment);
 		renderInfo.layerCount = scene->_shadowMapLayers;

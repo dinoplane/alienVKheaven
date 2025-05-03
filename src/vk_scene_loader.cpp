@@ -134,7 +134,7 @@ void SceneLoader::LoadPointLights(VulkanEngine* engine, Scene* scene,
     // For omni directional shadows, we know how many lights we have, so we know how many textures to create
     // To keep things flexible, we will not use cube maps for point lights, but rather use 6 512 x 512 textures
 
-    const uint32_t shadowMapWidth = 512;
+    const uint32_t shadowMapWidth = SHADOW_MAP_WIDTH;
     scene->_shadowMapCount = pointLights->size();
     scene->_shadowMapExtent = VkExtent2D{ shadowMapWidth, shadowMapWidth };
     scene->_shadowMapLayers = 6; // TODO: use a layered image instead of 6 images

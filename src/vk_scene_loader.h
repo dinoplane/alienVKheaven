@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <vk_scene.h>
 #include <vk_scenedata.h>
+#include <vk_constants.h>
 
 
 class SceneLoader {

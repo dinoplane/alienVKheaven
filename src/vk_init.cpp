@@ -1289,7 +1289,7 @@ void VulkanEngine::InitDefaultData()
 
 	loader.Clear();
 	std::vector<glm::mat4> lightSpaceViews;
-	glm::mat4 lightProjection = glm::perspective(glm::radians(90.0f), 1.0f, 5000.0f, 0.1f);
+	glm::mat4 lightProjection = glm::perspective(glm::radians(90.0f), 1.0f, 1000.0f, 0.1f);
 	lightProjection[1][1] *= -1; // flip Y axis	
 	lightSpaceViews.push_back(lightProjection);
 	lightSpaceViews.push_back(lookAt(glm::vec3(0, 0, 0), glm::vec3( 1,  0,  0), glm::vec3( 0,  1,  0)));		// right  // +x // red

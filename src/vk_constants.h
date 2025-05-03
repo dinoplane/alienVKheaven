@@ -1,0 +1,1 @@
+#define SHADOW_MAP_WIDTH 4096
