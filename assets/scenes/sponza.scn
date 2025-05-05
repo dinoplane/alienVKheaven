@@ -7,10 +7,10 @@
 }
 {
 "classname" "point_light"
-"origin" "3 5 0"
-"radius" "10.0"
+"origin" "0 20 0"
+"radius" "40.0"
 "color" "1.0 1.0 1.0"
-"intensity" "1.0"
+"intensity" "0.2"
 }
 {
 "classname" "skybox"

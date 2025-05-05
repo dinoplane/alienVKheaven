@@ -18,6 +18,7 @@ struct EntityData {
 struct SceneData {
     std::vector<EntityData> entitiesData;
     std::string skyboxPath;
+    Camera cameraData;
     bool errFlag = false;
 };
 

@@ -1,0 +1,1 @@
+Camera 0 Width: 1280 Height: 720 Yaw: -227.8 Pitch: -39.6999 Fov: 20 Near: 0.1 Far: 100000 Position: 8.36066 9.74683 -9.26292

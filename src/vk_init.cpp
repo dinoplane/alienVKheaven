@@ -1195,6 +1195,7 @@ static void GenerateSphere(std::vector<glm::vec4> & sphereVertices, std::vector<
 	}
 }
 
+
 void VulkanEngine::InitDefaultData()
 {
 	VkSamplerCreateInfo sampl = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
@@ -1317,6 +1318,11 @@ void VulkanEngine::InitDefaultData()
 
 }
 
+void VulkanEngine::InitCamera(){
+	_camera = SceneLoader::LoadCameraSettings("../assets/camera_settings.txt");
+}
+
+
 void VulkanEngine::LoadScene(const std::string& filePath){
 	if (isSceneLoaded) {
 		UnloadScene();
@@ -1400,7 +1406,7 @@ void VulkanEngine::LoadScene(const std::string& filePath){
 		writer.ApplyDescriptorSetUpdates(_device, _shadowMapDescriptors);
 	}
 
-
+	InitCamera();
 
 	isSceneLoaded = true;
 }
@@ -1414,6 +1420,8 @@ void VulkanEngine::UnloadScene(){
 	vkDeviceWaitIdle(_device);
 	scene->ClearAll();
 	scene.reset();
+
+	SceneLoader::SaveCameraSettings("../assets/camera_settings.txt", _camera);
 
 	isSceneLoaded = false;
 }

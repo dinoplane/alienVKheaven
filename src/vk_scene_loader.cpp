@@ -265,8 +265,81 @@ void SceneLoader::LoadSceneData(const std::string& scenePath, SceneData* sceneDa
             //     sceneData->cameraData.push_back(camera);
             // }
             }
-
+        }
     }
-    }
-    
 }
+
+void SceneLoader::SaveCameraSettings(const std::string& cameraSettingsPath, const Camera& camera)
+{
+    std::ofstream cameraSettingsFile(cameraSettingsPath, std::ios::out | std::ios::trunc);
+    if (!cameraSettingsFile.is_open())
+    {
+        std::cerr << "Failed to open camera settings file: " << cameraSettingsPath << std::endl;
+        return;
+    }
+
+    int cameraIdx = 0;
+	cameraSettingsFile  << "Camera " << cameraIdx++;
+	cameraSettingsFile  << " Width: " << camera.width 
+						<< " Height: " <<  camera.height 
+						<< " Yaw: " << camera.yaw 
+						<< " Pitch: " << camera.pitch
+						<< " Fov: " << camera.fovY 
+						<< " Near: " << camera.zNear 
+						<< " Far: " << camera.zFar;
+	cameraSettingsFile  << " Position: " << camera.position.x << " " << camera.position.y << " " << camera.position.z << std::endl;
+
+    cameraSettingsFile.close();
+}
+
+Camera SceneLoader::LoadCameraSettings(const std::string& cameraSettingsPath)
+{
+	Camera retCamera;
+    std::ifstream cameraSettingsFile(cameraSettingsPath);
+    if (!cameraSettingsFile.is_open())
+    {
+        std::cerr << "Failed to open camera settings file: " << cameraSettingsPath << std::endl;
+        
+    } else {
+		std::string line;
+
+		glm::vec3 pos, up, front;
+		float width, height, fov, yaw, pitch, camNear, camFar;
+		while (std::getline(cameraSettingsFile, line))
+		{
+			if (line.empty())
+			{
+				continue;
+			}
+	
+			std::istringstream iss(line);
+			std::string token;
+			iss >> token >> token;
+			std::cout << token << std::endl;
+			iss
+				>> token >> width;
+			std::cout << token << std::endl;
+			iss
+				>> token >> height;
+			iss
+				>> token >> yaw;
+			iss
+				>> token >> pitch;
+			iss
+				>> token >> fov;
+			iss
+				>> token >> camNear;
+			iss
+				>> token >> camFar;
+			iss >> token >> pos.x >> pos.y >> pos.z;
+	
+			retCamera = Camera(width, height, pos, yaw, pitch, fov, camNear, camFar);
+		}
+	}
+
+	cameraSettingsFile.close();
+
+	return retCamera;
+}
+
+

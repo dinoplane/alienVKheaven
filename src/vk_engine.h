@@ -338,6 +338,7 @@ private:
 	void InitCommands();
 	void InitSyncStructures();
 	void InitDescriptors();
+	void InitCamera();
 	
 	void InitPipelines();
 	void InitBackgroundPipelines();

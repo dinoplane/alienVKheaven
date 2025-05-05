@@ -49,7 +49,6 @@ void VulkanEngine::Init()
 	InitPipelines(); // I also don't like this
 
 	InitImgui();
-
     InitDefaultData();
 
     // everything went fine

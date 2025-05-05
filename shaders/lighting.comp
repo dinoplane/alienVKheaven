@@ -178,7 +178,7 @@ void main()
             }
 
 
-            float shadowFactor = CalculateShadowFactor(-lightDir, dist, position, pointLightIdx);
+            float shadowFactor = 1.0;//CalculateShadowFactor(-lightDir, dist, position, pointLightIdx);
             if (shadowFactor < 0.5)
             {
                 // ShadowMapData selectedShadowMap = selectShadowMapIdx(-lightDir);

@@ -6,7 +6,7 @@
 #include <vk_scene.h>
 #include <vk_scenedata.h>
 #include <vk_constants.h>
-
+#include <camera.h>
 
 class SceneLoader {
     public: 
@@ -19,5 +19,8 @@ class SceneLoader {
     static void LoadSceneData(const std::string& scenePath, SceneData* sceneData);
     // static void LoadCameraSettings(const std::string& cameraSettingsPath, std::vector<Camera>* camerasm, std::vector<Primitive>* debugMeshes);
     // static void SaveCameraSettings(const std::string& cameraSettingsPath, const std::vector<Camera>& cameras);
+    static void SaveCameraSettings(const std::string& cameraSettingsPath, const Camera& camera);
+    static Camera LoadCameraSettings(const std::string& cameraSettingsPath);
+
 };
 
