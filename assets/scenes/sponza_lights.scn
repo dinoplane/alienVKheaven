@@ -1,0 +1,241 @@
+{
+"classname" "model"
+"origin" "0 0 0"
+"angles" "0 0 0"
+"scale" "3 3 3"
+"path" "../assets/models/sponza/glTF/Sponza.gltf"
+}
+{
+"classname" "skybox"
+"front" "../assets/skybox/room/pz.png"
+"back" "../assets/skybox/room/nz.png"
+"top" "../assets/skybox/room/py.png"
+"bottom" "../assets/skybox/room/ny.png"
+"right" "../assets/skybox/room/px.png"
+"left" "../assets/skybox/room/nx.png"
+}
+{
+"classname" "point_light"
+"origin" "27 5 9.6"
+"radius" "20"
+"color" "0.03 0.84 0.78"
+"intensity" "0.1"
+}
+{
+"classname" "point_light"
+"origin" "27 7 -0.85"
+"radius" "20"
+"color" "0.35 0.30 0.20"
+"intensity" "0.1"
+}
+{
+"classname" "point_light"
+"origin" "27 5 -10.7"
+"radius" "20"
+"color" "0.47 0.50 0.82"
+"intensity" "0.1"
+}
+{
+"classname" "point_light"
+"origin" "-1 7 10"
+"radius" "20"
+"color" "0.86 0.10 0.11"
+"intensity" "0.1"
+}
+{
+"classname" "point_light"
+"origin" "-1 7 -10.7"
+"radius" "20"
+"color" "0.19 0.60 0.95"
+"intensity" "0.1"
+}
+{
+"classname" "point_light"
+"origin" "-28.8 5 9.6"
+"radius" "20"
+"color" "0.61 0.80 1.00"
+"intensity" "0.1"
+}
+{
+"classname" "point_light"
+"origin" "-28.8 7 -0.85"
+"radius" "20"
+"color" "0.20 0.46 0.23"
+"intensity" "0.1"
+}
+{
+"classname" "point_light"
+"origin" "-28.8 5 -10.7"
+"radius" "20"
+"color" "0.20 0.28 0.84"
+"intensity" "0.1"
+}
+{
+"classname" "point_light"
+"origin" "-14.85 17 -4"
+"radius" "17"
+"color" "0.30 0.77 0.86"
+"intensity" "0.2"
+}
+{
+"classname" "point_light"
+"origin" "-6 17 -4"
+"radius" "17"
+"color" "0.20 0.46 0.23"
+"intensity" "0.2"
+}
+{
+"classname" "point_light"
+"origin" "3 17 -4"
+"radius" "17"
+"color" "0.26 0.55 0.71"
+"intensity" "0.2"
+}
+{
+"classname" "point_light"
+"origin" "12 17 -4"
+"radius" "17"
+"color" "0.74 0.02 0.15"
+"intensity" "0.2"
+}
+{
+"classname" "point_light"
+"origin" "-14.85 17 1.62"
+"radius" "17"
+"color" "0.85 0.29 0.46"
+"intensity" "0.2"
+}
+{
+"classname" "point_light"
+"origin" "-6 17 1.62"
+"radius" "17"
+"color"  "0.98 0.48 0.75"
+"intensity" "0.2"
+}
+{
+"classname" "point_light"
+"origin" "3 17 1.62"
+"radius" "17"
+"color" "0.32 0.09 0.59"
+"intensity" "0.2"
+}
+{
+"classname" "point_light"
+"origin" "12 17 1.62"
+"radius" "17"
+"color"  "0.45 0.28 0.42"
+"intensity" "0.2"
+}
+{
+"classname" "point_light"
+"origin" "27 20 9.6"
+"radius" "20"
+"color" "0.12 0.67 0.45"
+"intensity" "0.1"
+}
+{
+"classname" "point_light"
+"origin" "27 20 -0.85"
+"radius" "20"
+"color" "0.89 0.23 0.56"
+"intensity" "0.1"
+}
+{
+"classname" "point_light"
+"origin" "27 20 -10.7"
+"radius" "20"
+"color" "0.34 0.78 0.91"
+"intensity" "0.1"
+}
+{
+"classname" "point_light"
+"origin" "-1 20 10"
+"radius" "20"
+"color" "0.72 0.15 0.88"
+"intensity" "0.1"
+}
+{
+"classname" "point_light"
+"origin" "-1 20 -10.7"
+"radius" "20"
+"color" "0.48 0.62 0.40"
+"intensity" "0.1"
+}
+{
+"classname" "point_light"
+"origin" "-28.8 20 9.6"
+"radius" "20"
+"color" "0.27 0.76 0.12"
+"intensity" "0.1"
+}
+{
+"classname" "point_light"
+"origin" "-28.8 20 -0.85"
+"radius" "20"
+"color" "0.45 0.01 0.88"
+"intensity" "0.1"
+}
+{
+"classname" "point_light"
+"origin" "-28.8 20 -10.7"
+"radius" "20"
+"color" "0.77 0.09 0.30"
+"intensity" "0.1"
+}
+
+{
+"classname" "point_light"
+"origin" "27 40 9.6"
+"radius" "20"
+"color" "0.58 0.34 0.91"
+"intensity" "0.1"
+}
+{
+"classname" "point_light"
+"origin" "27 40 -0.85"
+"radius" "20"
+"color" "0.12 0.89 0.23"
+"intensity" "0.1"
+}
+{
+"classname" "point_light"
+"origin" "27 40 -10.7"
+"radius" "20"
+"color" "0.67 0.45 0.78"
+"intensity" "0.1"
+}
+{
+"classname" "point_light"
+"origin" "-1 40 10"
+"radius" "20"
+"color" "0.91 0.15 0.34"
+"intensity" "0.1"
+}
+{
+"classname" "point_light"
+"origin" "-1 40 -10.7"
+"radius" "20"
+"color" "0.40 0.72 0.62"
+"intensity" "0.1"
+}
+{
+"classname" "point_light"
+"origin" "-28.8 40 9.6"
+"radius" "20"
+"color" "0.76 0.27 0.45"
+"intensity" "0.1"
+}
+{
+"classname" "point_light"
+"origin" "-28.8 40 -0.85"
+"radius" "20"
+"color" "0.88 0.12 0.67"
+"intensity" "0.1"
+}
+{
+"classname" "point_light"
+"origin" "-28.8 40 -10.7"
+"radius" "20"
+"color" "0.09 0.77 0.30"
+"intensity" "0.1"
+}

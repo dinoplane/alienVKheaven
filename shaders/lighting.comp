@@ -178,7 +178,7 @@ void main()
             }
 
 
-            float shadowFactor = 1.0;//CalculateShadowFactor(-lightDir, dist, position, pointLightIdx);
+            float shadowFactor = CalculateShadowFactor(-lightDir, dist, position, pointLightIdx);
             if (shadowFactor < 0.5)
             {
                 // ShadowMapData selectedShadowMap = selectShadowMapIdx(-lightDir);
@@ -195,7 +195,7 @@ void main()
             // float depth = texture()
 
 
-            outColor +=  NdL * albedo.rgb * light.intensity * f_window * c_light;
+            outColor +=  NdL * albedo.rgb * light.intensity * f_window * c_light * light.color;
 
 
         }

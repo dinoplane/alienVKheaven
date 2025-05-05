@@ -1,6 +1,6 @@
-﻿#define _CRTDBG_MAP_ALLOC
+﻿// #define _CRTDBG_MAP_ALLOC
 #include <stdlib.h>
-#include <crtdbg.h>
+// #include <crtdbg.h>
 
 #include <vk_descriptors.h>
 

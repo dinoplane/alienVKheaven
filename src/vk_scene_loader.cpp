@@ -183,17 +183,30 @@ void SceneLoader::LoadSceneData(const std::string& scenePath, SceneData* sceneDa
 
     std::string line;
     EntityData data;
+    bool skip = false;
     while (std::getline(sceneFile, line))
     {
         if (line.empty())
         {
             continue;
-        } else if (line[0] == '{')
+        } else if (line[0] == '/' && line[1] == '*')
+        {
+            // Start of a comment block
+            skip = true;
+        } else if (line[0] == '*' && line[1] == '/')
+        {
+            // End of comment block
+            skip = false;
+        } else if (skip)
+        {
+            // Skip comment line
+            continue;
+        } 
+        else if (line[0] == '{')
         {
             // Start of a new entity
             data = EntityData();
             continue;
-
         } else if (line[0] == '}')
         {
             // End of entity
