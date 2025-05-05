@@ -113,7 +113,7 @@ def main():
                 "origin": "{:.2f} {:.2f} {:.2f}".format(aabb["min"][0] + random.random() * dist_x,
                                             aabb["min"][1] + random.random() * dist_y,
                                             aabb["min"][2] + random.random() * dist_z),
-                "radius": "{:.2f}".format(random.random() * 5.0 + 5.0),
+                "radius": "{:.2f}".format(random.random() * 2.0 + 2.0),
                 "color": "{:.2f} {:.2f} {:.2f}".format(random.random(), random.random(), random.random()),
                 "intensity": "1.0",                    
             }

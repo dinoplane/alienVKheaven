@@ -10,6 +10,7 @@ layout(set = 0, binding = 0) readonly uniform GPUSceneBuffer{
     mat4 clipFromWorld;
     vec4 lightDir;
     vec4 eyePos;
+    uint enableShadows;
 } gpuSceneData;
 
 
@@ -132,7 +133,7 @@ float CalculateShadowFactor(vec3 lightToFrag, float dist, vec4 fragPos, uint poi
     // lightSpacePos = lightSpacePos * 0.5 + 0.5; // convert from clip space to UV space
 
 
-    ivec2 shadowMapUV = ivec2((selectedShadowMap.shadowMapUV * 0.5 + 0.5) * 4096.0);
+    ivec2 shadowMapUV = ivec2((selectedShadowMap.shadowMapUV * 0.5 + 0.5) * 1024);
 
     float closestDepth = texelFetch(shadowMaps[pointLightIdx], ivec3(shadowMapUV, shadowMapIdx), 0).x;
     float currentDepth = lightSpacePos.z;
@@ -177,16 +178,18 @@ void main()
                 continue;
             }
 
-
-            float shadowFactor = CalculateShadowFactor(-lightDir, dist, position, pointLightIdx);
-            if (shadowFactor < 0.5)
+            if (gpuSceneData.enableShadows == 1)
             {
-                // ShadowMapData selectedShadowMap = selectShadowMapIdx(-lightDir);
-                // uint shadowMapIdx = selectedShadowMap.shadowMapIdx;
-                // vec3 lightColor = shadowColors[shadowMapIdx];
-                // outColor = lightColor;
+                float shadowFactor = CalculateShadowFactor(-lightDir, dist, position, pointLightIdx);
+                if (shadowFactor < 0.5)
+                {
+                    // ShadowMapData selectedShadowMap = selectShadowMapIdx(-lightDir);
+                    // uint shadowMapIdx = selectedShadowMap.shadowMapIdx;
+                    // vec3 lightColor = shadowColors[shadowMapIdx];
+                    // outColor = lightColor;
 
-                continue;
+                    continue;
+                }
             }
 
             float c_light = light.radius*light.radius / (dist*dist + 0.001);

@@ -182,7 +182,6 @@
 "color" "0.77 0.09 0.30"
 "intensity" "0.1"
 }
-
 {
 "classname" "point_light"
 "origin" "27 40 9.6"
@@ -239,3 +238,4 @@
 "color" "0.09 0.77 0.30"
 "intensity" "0.1"
 }
+

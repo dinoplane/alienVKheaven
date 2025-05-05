@@ -1,5 +1,6 @@
 add_executable (engine 
   main.cpp
+  vk_constants.h
   vk_types.h
   vk_initializers.cpp
   vk_initializers.h

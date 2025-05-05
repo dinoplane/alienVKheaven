@@ -73,6 +73,13 @@ void VulkanEngineUI::RenderGlobalParamUI(VulkanEngineUIState* engineUIState, Vul
     ImGui::SeparatorText("Frame Time");
     ImGui::Text("%.5f", engine->_deltaTime);
 
-    ImGui::SeparatorText("Render Debug Volumes");
-    ImGui::Checkbox("Show Point Lights", &engine->_showDebugVolumes);
+    ImGui::SeparatorText("Rendering Flags");
+    ImGui::Checkbox("Render debug volumes", &engine->_showDebugVolumes);    
+    ImGui::Checkbox("Enable shadows", &engine->_enableShadows);
+    if (engine->_enableShadows){
+        engine->sceneUniformData.enableShadows = 1;
+    } else {
+        engine->sceneUniformData.enableShadows = 0;
+    }
+    
 }

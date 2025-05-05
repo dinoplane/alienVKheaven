@@ -105,6 +105,7 @@ struct GPUSceneData {
     glm::mat4 viewProjMatrix;
 	glm::vec4 lightDirection; // remove later
 	glm::vec4 eyePosition;
+	uint32_t enableShadows{0};
 };
 
 // struct LightingData {
@@ -271,6 +272,7 @@ public:
 	// UI
 	VulkanEngineUIState engineUIState;
 	bool _showDebugVolumes {false};
+	bool _enableShadows {false};
 
 	// Scene
 	std::shared_ptr<Scene> scene;

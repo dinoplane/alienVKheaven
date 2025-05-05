@@ -33,7 +33,7 @@ foreach(GLSL ${GLSL_SOURCE_FILES})
   message(STATUS ${GLSL})
   message(STATUS "${GLSL_VALIDATOR} -V ${GLSL} -o ${SPIRV}")
   add_custom_command(
-    COMMAND ${GLSL_VALIDATOR} -gVS -V ${GLSL} -o ${SPIRV}
+    COMMAND ${GLSL_VALIDATOR} -V ${GLSL} -o ${SPIRV}
     OUTPUT ${SPIRV}
     DEPENDS ${GLSL}
     COMMENT "Compiling ${GLSL} to ${SPIRV}"
