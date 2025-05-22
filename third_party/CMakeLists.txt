@@ -11,20 +11,13 @@ add_subdirectory(fmt EXCLUDE_FROM_ALL)
 add_subdirectory(SDL EXCLUDE_FROM_ALL)
 
 add_subdirectory(nativefiledialog)
-# add_library(nativefiledialog STATIC)
-# target_include_directories(nativefiledialog PUBLIC ./nativefiledialog/src/include)
-# target_sources(nativefiledialog PRIVATE 
-#   nativefiledialog/src/include/nfd.h
 
-#   nativefiledialog/src/common.h
-#   nativefiledialog/src/nfd_common.h
-#   nativefiledialog/src/nfd_common.c
-#   nativefiledialog/src/nfd_gtk.c
-#   nativefiledialog/src/nfd_win.cpp
-#   nativefiledialog/src/nfd_cocoa.m
-# )
 
-# target_link_libraries(nativefiledialog PUBLIC $<$<BOOL:UNIX>:${GTK3_LIBRARIES}>)
+option(TRACY_ENABLE "Enable Tracy profiler" ON)
+option(TRACY_ON_DEMAND "Enable Tracy on demand" OFF)
+
+add_subdirectory(tracy EXCLUDE_FROM_ALL)
+
 
 target_sources(vkbootstrap PRIVATE 
   vkbootstrap/VkBootstrap.h

@@ -4,6 +4,8 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/string_cast.hpp>
 
+#include <tracy/Tracy.hpp>
+
 #include <nfd.h>
 
 void VulkanEngineUI::RenderVulkanEngineUI(VulkanEngineUIState* engineUIState, VulkanEngine* engine){
@@ -72,6 +74,14 @@ void VulkanEngineUI::RenderGlobalParamUI(VulkanEngineUIState* engineUIState, Vul
 
     ImGui::SeparatorText("Frame Time");
     ImGui::Text("%.5f", engine->_deltaTime);
+
+
+    TracyPlot("Frame Time", engine->_deltaTime);
+
+    ImGui::SeparatorText("Frame Per Second (FPS)");
+    ImGui::Text("%.2f", 1.0f / engine->_deltaTime);
+    
+
 
     ImGui::SeparatorText("Rendering Flags");
     ImGui::Checkbox("Render debug volumes", &engine->_showDebugVolumes);    

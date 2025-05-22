@@ -2,6 +2,7 @@
 #include <stdlib.h>
 // #include <crtdbg.h>
 
+#include <tracy/Tracy.hpp>
 #include <vk_images.h>
 #include <vk_initializers.h>
 
@@ -12,6 +13,8 @@ void VkUtil::BarrierEmitter::Clear()
 }
 
 void VkUtil::BarrierEmitter::EmitBarrier(VkCommandBuffer cmd){
+    ZoneScoped;
+
     VkDependencyInfo depInfo {};
     depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
     depInfo.pNext = nullptr;

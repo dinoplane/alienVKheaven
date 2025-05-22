@@ -9,6 +9,8 @@
 #include <fmt/printf.h>
 #include "vk_scene_loader.h"
 
+#include <tracy/Tracy.hpp>
+
 #define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"
 
@@ -19,6 +21,8 @@ VulkanEngine& VulkanEngine::Get() { return *loadedEngine; }
 
 void VulkanEngine::Init()
 {
+	TracyPlotConfig("Frame Time", tracy::PlotFormatType::Number, false, false, tracy::Color::Blue);
+
     // only one engine initialization is allowed with the application.
     assert(loadedEngine == nullptr);
     loadedEngine = this;
@@ -99,6 +103,7 @@ void VulkanEngine::Cleanup()
 
 void VulkanEngine::Draw()
 {
+	ZoneScoped;
 //wait until the gpu has finished rendering the last frame. Timeout of 1 second
 	VK_CHECK(vkWaitForFences(_device, 1, &get_current_frame()._renderFence, true, 1000000000));
 
@@ -297,6 +302,7 @@ void VulkanEngine::DrawImgui(VkCommandBuffer cmd, VkImageView targetImageView)
 
 void VulkanEngine::DrawBackground(VkCommandBuffer cmd)
 {
+	ZoneScoped;
 	ComputeEffect& effect = backgroundEffects[currentBackgroundEffect];
 
 	// bind the background compute pipeline
@@ -311,6 +317,8 @@ void VulkanEngine::DrawBackground(VkCommandBuffer cmd)
 }
 
 void VulkanEngine::DrawSkyBoxPass(VkCommandBuffer cmd){
+	ZoneScoped;
+
     //begin a render pass  connected to our draw image
 	VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(_drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
@@ -347,6 +355,8 @@ void VulkanEngine::DrawSkyBoxPass(VkCommandBuffer cmd){
 }
 
 void VulkanEngine::DrawDebugPass(VkCommandBuffer cmd){
+	ZoneScoped;
+
 	//begin a render pass  connected to our draw image
 	VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(_drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 	VkRenderingAttachmentInfo depthAttachment = vkinit::depth_attachment_info(_depthImage.imageView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_NONE);
@@ -388,6 +398,8 @@ void VulkanEngine::DrawDebugPass(VkCommandBuffer cmd){
 
 void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
 {
+	ZoneScoped;
+
 
     //begin a render pass  connected to our draw image
 	// VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(_drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -435,6 +447,8 @@ void VulkanEngine::DrawGeometry(VkCommandBuffer cmd)
 }
 
 void VulkanEngine::DrawDepthPass(VkCommandBuffer cmd){
+	ZoneScoped;
+
 	for (int shadowMapIdx = 0; shadowMapIdx < scene->_shadowMapCount; shadowMapIdx++){
 	//begin a render pass  connected to our draw image
 		VkRenderingAttachmentInfo depthAttachment = vkinit::depth_attachment_info(scene->_shadowMapBuffer[shadowMapIdx].imageView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
@@ -485,6 +499,8 @@ void VulkanEngine::DrawDepthPass(VkCommandBuffer cmd){
 
 void VulkanEngine::DrawLightingPass(VkCommandBuffer cmd)
 {
+	ZoneScoped;
+
 	// bind the background compute pipeline
 	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _lightingPassPipeline);	
 
