@@ -15,6 +15,7 @@ add_subdirectory(nativefiledialog)
 
 option(TRACY_ENABLE "Enable Tracy profiler" ON)
 option(TRACY_ON_DEMAND "Enable Tracy on demand" OFF)
+option(TRACY_VK_USE_SYMBOL_TABLE "Use symbol table for Tracy" ON )
 
 add_subdirectory(tracy EXCLUDE_FROM_ALL)
 

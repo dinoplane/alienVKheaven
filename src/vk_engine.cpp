@@ -1,4 +1,5 @@
 ﻿// #define _CRTDBG_MAP_ALLOC
+
 #include "vk_engine.h"
 
 
@@ -54,6 +55,7 @@ void VulkanEngine::Init()
 
 	InitImgui();
     InitDefaultData();
+	InitTracy();
 
     // everything went fine
     _lastFrame = 0;
@@ -68,7 +70,11 @@ void VulkanEngine::Cleanup()
 		
 		//make sure the gpu has stopped doing its things
 		vkDeviceWaitIdle(_device);
-		
+		for (uint32_t i = 0; i < FRAME_OVERLAP; i++) {
+			TracyVkDestroy(_tracyCtx[i]);
+		}
+
+
 		for (int i = 0; i < FRAME_OVERLAP; i++) {
 
 			vkDestroyCommandPool(_device, _frames[i]._commandPool, nullptr);
@@ -134,119 +140,123 @@ void VulkanEngine::Draw()
 	VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 	
 	VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
+	{
+		TracyVkCollect(_tracyCtx[_frameNumber % FRAME_OVERLAP], cmd);
+		TracyVkZone(_tracyCtx[_frameNumber % FRAME_OVERLAP], cmd, "nnehhhh");
+		//write the buffer
+		void* sceneMappedPtr;
+		vmaMapMemory(_allocator, get_current_frame()._gpuSceneDataBuffer.allocation, &sceneMappedPtr);
+		memcpy(sceneMappedPtr, &sceneUniformData, sizeof(GPUSceneData));
+		vmaUnmapMemory(_allocator,  get_current_frame()._gpuSceneDataBuffer.allocation);
 
-	//write the buffer
-	void* sceneMappedPtr;
-	vmaMapMemory(_allocator, get_current_frame()._gpuSceneDataBuffer.allocation, &sceneMappedPtr);
-	memcpy(sceneMappedPtr, &sceneUniformData, sizeof(GPUSceneData));
-	vmaUnmapMemory(_allocator,  get_current_frame()._gpuSceneDataBuffer.allocation);
+		VkBufferCopy copy{};
+		copy.dstOffset = 0;
+		copy.srcOffset = 0;
+		copy.size = sizeof(GPUSceneData);
 
-	VkBufferCopy copy{};
-	copy.dstOffset = 0;
-	copy.srcOffset = 0;
-	copy.size = sizeof(GPUSceneData);
-
-	vkCmdCopyBuffer(cmd, get_current_frame()._gpuSceneDataBuffer.buffer, _gpuSceneDataBuffer.buffer, 1, &copy);
+		vkCmdCopyBuffer(cmd, get_current_frame()._gpuSceneDataBuffer.buffer, _gpuSceneDataBuffer.buffer, 1, &copy);
 
 
-	// transition our main draw image into general layout so we can write into it
-	// we will overwrite it all so we dont care about what was the older layout
-	VkUtil::TransitionImage(cmd, _drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+		// transition our main draw image into general layout so we can write into it
+		// we will overwrite it all so we dont care about what was the older layout
+		VkUtil::TransitionImage(cmd, _drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
-	VkClearColorValue clearValue;
-	// float flash = std::abs(std::sin(_frameNumber / 120.f));
-	clearValue = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+		VkClearColorValue clearValue;
+		// float flash = std::abs(std::sin(_frameNumber / 120.f));
+		clearValue = { { 0.0f, 0.0f, 0.0f, 0.0f } };
 
-	VkImageSubresourceRange clearRange = vkinit::image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);
+		VkImageSubresourceRange clearRange = vkinit::image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);
 
-	vkCmdClearColorImage(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
-	
-
-	
-	VkUtil::BarrierEmitter barrierEmitter;
-	if (isSceneLoaded){
-		if (scene->_skyBoxImage.has_value()) {
-			VkUtil::TransitionImage(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-			DrawSkyBoxPass(cmd);
-			VkUtil::TransitionImage(cmd, _drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
-		}
+		vkCmdClearColorImage(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
 		
-		// for (uint32_t i = 0; i < scene->_shadowMapCount; i++) {
-		// 	VkUtil::TransitionImage(cmd, scene->_shadowMapBuffer[i].image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-			
-		// 	VkClearDepthStencilValue clearDepthValue;
-		// 	// float flash = std::abs(std::sin(_frameNumber / 120.f));
-		// 	clearDepthValue = { 1.0f, 0 };
-		
-		// 	VkImageSubresourceRange clearDepthRange = vkinit::image_subresource_range(VK_IMAGE_ASPECT_DEPTH_BIT);
-			
-		// 	vkCmdClearDepthStencilImage(cmd, scene->_shadowMapBuffer[i].image, VK_IMAGE_LAYOUT_GENERAL, &clearDepthValue, 1, &clearDepthRange);
-		// }
 
-		barrierEmitter.TransitionImage(_positionImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-		barrierEmitter.TransitionImage(_normalImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-		barrierEmitter.TransitionImage(_albedoImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-		barrierEmitter.EmitBarrierAndFlush(cmd);
-	
-		vkCmdClearColorImage(cmd, _positionImage.image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
-		vkCmdClearColorImage(cmd, _normalImage.image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
-		vkCmdClearColorImage(cmd, _albedoImage.image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
 		
-		barrierEmitter.TransitionImage(_positionImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-		barrierEmitter.TransitionImage(_normalImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-		barrierEmitter.TransitionImage(_albedoImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-		barrierEmitter.TransitionImage(_depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
-		barrierEmitter.EmitBarrierAndFlush(cmd);
-		
-		DrawGeometry(cmd);
-
-		if (_enableShadows){
-			for (uint32_t i = 0; i < scene->_shadowMapCount; i++) {
-				barrierEmitter.TransitionImage(scene->_shadowMapBuffer[i].image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+		VkUtil::BarrierEmitter barrierEmitter;
+		if (isSceneLoaded){
+			if (scene->_skyBoxImage.has_value()) {
+				VkUtil::TransitionImage(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+				DrawSkyBoxPass(cmd);
+				VkUtil::TransitionImage(cmd, _drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
 			}
+			
+			// for (uint32_t i = 0; i < scene->_shadowMapCount; i++) {
+			// 	VkUtil::TransitionImage(cmd, scene->_shadowMapBuffer[i].image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+				
+			// 	VkClearDepthStencilValue clearDepthValue;
+			// 	// float flash = std::abs(std::sin(_frameNumber / 120.f));
+			// 	clearDepthValue = { 1.0f, 0 };
+			
+			// 	VkImageSubresourceRange clearDepthRange = vkinit::image_subresource_range(VK_IMAGE_ASPECT_DEPTH_BIT);
+				
+			// 	vkCmdClearDepthStencilImage(cmd, scene->_shadowMapBuffer[i].image, VK_IMAGE_LAYOUT_GENERAL, &clearDepthValue, 1, &clearDepthRange);
+			// }
+
+			barrierEmitter.TransitionImage(_positionImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+			barrierEmitter.TransitionImage(_normalImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+			barrierEmitter.TransitionImage(_albedoImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 			barrierEmitter.EmitBarrierAndFlush(cmd);
-	
-			DrawDepthPass(cmd);
-	
-			for (uint32_t i = 0; i < scene->_shadowMapCount; i++) {
-				barrierEmitter.TransitionImage(scene->_shadowMapBuffer[i].image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL);
+		
+			vkCmdClearColorImage(cmd, _positionImage.image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
+			vkCmdClearColorImage(cmd, _normalImage.image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
+			vkCmdClearColorImage(cmd, _albedoImage.image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
+			
+			barrierEmitter.TransitionImage(_positionImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+			barrierEmitter.TransitionImage(_normalImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+			barrierEmitter.TransitionImage(_albedoImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+			barrierEmitter.TransitionImage(_depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+			barrierEmitter.EmitBarrierAndFlush(cmd);
+			
+			DrawGeometry(cmd);
+
+			if (_enableShadows){
+				for (uint32_t i = 0; i < scene->_shadowMapCount; i++) {
+					barrierEmitter.TransitionImage(scene->_shadowMapBuffer[i].image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+				}
+				barrierEmitter.EmitBarrierAndFlush(cmd);
+		
+				DrawDepthPass(cmd);
+		
+				for (uint32_t i = 0; i < scene->_shadowMapCount; i++) {
+					barrierEmitter.TransitionImage(scene->_shadowMapBuffer[i].image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL);
+				}
+			}
+
+
+			barrierEmitter.TransitionImage(_positionImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+			barrierEmitter.TransitionImage(_normalImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+			barrierEmitter.TransitionImage(_albedoImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+			barrierEmitter.EmitBarrierAndFlush(cmd);
+
+			DrawLightingPass(cmd);
+			
+			if (scene->_hasPointLights && _showDebugVolumes){
+				VkUtil::TransitionImage(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+				DrawDebugPass(cmd);
+				VkUtil::TransitionImage(cmd, _drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
 			}
 		}
-
-
-		barrierEmitter.TransitionImage(_positionImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
-		barrierEmitter.TransitionImage(_normalImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
-		barrierEmitter.TransitionImage(_albedoImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
-		barrierEmitter.EmitBarrierAndFlush(cmd);
-
-		DrawLightingPass(cmd);
 		
-		if (scene->_hasPointLights && _showDebugVolumes){
-			VkUtil::TransitionImage(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-			DrawDebugPass(cmd);
-			VkUtil::TransitionImage(cmd, _drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
-		}
+		//transtion the draw image and the swapchain image into their correct transfer layouts
+		barrierEmitter.TransitionImage(_drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+		barrierEmitter.TransitionImage(_swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		barrierEmitter.EmitBarrierAndFlush(cmd);
+		
+	//> copyimage
+		// execute a copy from the draw image into the swapchain
+		VkUtil::CopyImageToImage(cmd, _drawImage.image, _swapchainImages[swapchainImageIndex],_drawExtent ,_swapchainExtent);
+	//< copyimage
+
+		// set swapchain image layout to Attachment Optimal so we can draw it
+		VkUtil::TransitionImage(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+		//draw imgui into the swapchain image
+		DrawImgui(cmd, _swapchainImageViews[swapchainImageIndex]);
+
+		// set swapchain image layout to Present so we can draw it
+		VkUtil::TransitionImage(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+	
 	}
-	
-	//transtion the draw image and the swapchain image into their correct transfer layouts
-	barrierEmitter.TransitionImage(_drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-	barrierEmitter.TransitionImage(_swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	barrierEmitter.EmitBarrierAndFlush(cmd);
-	
-//> copyimage
-	// execute a copy from the draw image into the swapchain
-	VkUtil::CopyImageToImage(cmd, _drawImage.image, _swapchainImages[swapchainImageIndex],_drawExtent ,_swapchainExtent);
-//< copyimage
-
-	// set swapchain image layout to Attachment Optimal so we can draw it
-	VkUtil::TransitionImage(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-
-	//draw imgui into the swapchain image
-	DrawImgui(cmd, _swapchainImageViews[swapchainImageIndex]);
-
-	// set swapchain image layout to Present so we can draw it
-	VkUtil::TransitionImage(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-
 	//finalize the command buffer (we can no longer add commands, but it can now be executed)
 	VK_CHECK(vkEndCommandBuffer(cmd));
 

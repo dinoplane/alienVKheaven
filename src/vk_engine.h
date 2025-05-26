@@ -33,7 +33,8 @@
 
 #include "camera.h"
 #include "vk_scene.h"
-
+#include <tracy/Tracy.hpp>
+#include <tracy/TracyVulkan.hpp>
 
 constexpr bool bUseValidationLayers = true;
 
@@ -354,6 +355,9 @@ private:
 
 	void InitImgui();
 	void InitDefaultData();
+
+	tracy::VkCtx* _tracyCtx[FRAME_OVERLAP]; 
+	void InitTracy();
 
 	void DrawBackground(VkCommandBuffer cmd);
 	void DrawSkyBoxPass(VkCommandBuffer cmd);

@@ -7,6 +7,9 @@
 #include <vk_loader.h>
 #include <vk_scene.h>
 
+
+
+
 bool isDeviceSuitable(VkPhysicalDevice device) {
     VkPhysicalDeviceProperties deviceProperties;
     VkPhysicalDeviceFeatures deviceFeatures;
@@ -23,8 +26,11 @@ PFN_vkCmdEndRenderingKHR vkCmdEndRenderingKHR_ = nullptr;
 PFN_vkCmdPipelineBarrier2KHR vkCmdPipelineBarrier2KHR_ = nullptr;
 PFN_vkCmdBlitImage2KHR vkCmdBlitImage2KHR_ = nullptr;
 
+
 void VulkanEngine::InitVulkan()
 {
+
+	
 	vkb::InstanceBuilder builder;
 	std::cout << "Initializing Vulkan 1" << std::endl;
 	//make the vulkan instance, with basic debug features
@@ -175,6 +181,8 @@ void VulkanEngine::InitVulkan()
 	});
 //< vma_init
 std::cout << "Initializing Vulkan 7" << std::endl;
+
+	
 }
 
 static void InitColorAttachmentImage(
@@ -1316,6 +1324,18 @@ void VulkanEngine::InitDefaultData()
 
 
 
+}
+
+
+void VulkanEngine::InitTracy(){
+	for (uint32_t i = 0; i < FRAME_OVERLAP; i++) {
+		_tracyCtx[i] = tracy::CreateVkContext(_chosenGPU, _device, _graphicsQueue, _frames[i]._mainCommandBuffer,
+			(PFN_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT)vkGetInstanceProcAddr(_instance, "vkGetPhysicalDeviceCalibrateableTimeDomains"),
+			(PFN_vkGetCalibratedTimestampsEXT)vkGetInstanceProcAddr(_instance, "vkGetCalibratedTimestamps"));
+
+		// vkGetInstanceProcAddr(_instance, "vkGetInstanceProcAddr"),
+		// vkGetInstanceProcAddr(_instance, "vkGetDeviceProcAddr"), false);
+	}
 }
 
 void VulkanEngine::InitCamera(){
